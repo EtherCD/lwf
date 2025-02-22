@@ -1,12 +1,21 @@
 import { SchemaError } from './errors'
 import { LexerTokenType, LWFHeader, LWFSchema, ParsedArgs } from './types'
 
-export const auto = (elements: Array<ParsedArgs>, list: Array<string | null>) => {
+export const auto = (elements: Array<ParsedArgs>, header: LWFHeader) => {
+  let list = header.args
+  let requiredArgs = header.requiredArgs ?? []
   let out: Record<string, any> = {}
   for (let i = 0; i < elements.length; i++) {
     const e = elements[i]
     if (list[i] === null) continue
-    if (e.type != LexerTokenType.NOTHING) out[list[i]!] = elements[i].value
+    if (e.type != LexerTokenType.NOTHING) {
+      out[list[i]!] = elements[i].value
+    } else {
+      const f = requiredArgs.filter((e) => e[0] === list[i])
+      if (f.length !== 0) {
+        out[list[i]!] = f[0][1]
+      }
+    }
   }
   return out
 }
@@ -17,6 +26,8 @@ export const toLazyFormat = (input: Record<string, any>, schema: LWFHeader, pref
 
   let output = '[' + (prefix ? prefix + ',' : '')
   for (const i in elements) {
+    let element = elements[i]
+    if (typeof element === 'string' && element.length === 0) element = '\0'
     output += elements[i] === null ? ',,' : elements[i] + ','
   }
   output += ']'

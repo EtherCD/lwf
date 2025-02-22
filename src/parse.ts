@@ -33,7 +33,7 @@ export class LWFParser {
     let node: ParsedBlock = { index: token.value + '', args: [] }
     token = this.next()
     while (token.type !== LexerTokenType.RBRACKET) {
-      if (token.type === LexerTokenType.NOTHING || token.type === LexerTokenType.STRING) {
+      if ([LexerTokenType.NOTHING, LexerTokenType.STRING, LexerTokenType.BOOLEAN].includes(token.type)) {
         node.args.push({
           type: token.type,
           value: token.value,

@@ -2,7 +2,7 @@
   "name": "lwf",
   "description": "Lightweight Format - a format for storing data by writing sequential blocks of data, without using any designations",
   "license": "MIT",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/EtherCD/lwf"
@@ -12,13 +12,12 @@
     "serialization",
     "compact"
   ],
-  "main": "dist/index.cjs",
-  "module": "dist/index.js",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts",
-    "test": "jest",
-    "dev": "ts-node src/test.ts"
+    "test": "jest"
   },
   "dependencies": {},
   "devDependencies": {

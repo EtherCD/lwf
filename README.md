@@ -1,7 +1,11 @@
 <div align="center">
-  <h1>LWF</h1>
+  <img src="docs/icon.png" alt="LWF">
   <p>Lightweight Format - A format for storing data by writing sequential blocks of data, without using any designations</p>
-  <img src="docs/icon.svg" width="64">
+  </hr>
+
+  <img src="https://img.shields.io/npm/last-update/lwf"/>
+  <img src="https://img.shields.io/github/languages/code-size/EtherCD/lwf?">
+  <img src="https://img.shields.io/npm/v/lwf">
 </div>
 
 # How it works? And For what?
@@ -31,11 +35,11 @@ Example schema:
 
 ```ts
 const schema: LWFSchema = {
-	a: {
-		key: "message",
-		args: ["message", "length", "verified", "name", "grammarCheck"],
-	},
-};
+  a: {
+    key: 'message',
+    args: ['message', 'length', 'verified', 'name', 'grammarCheck'],
+  },
+}
 ```
 
 And it's returns object like that!

@@ -47,7 +47,7 @@ export class LWF {
       )
 
     let included =
-      header.args.length === 0 && header.key.length !== 0 ? block.args.map((e) => e.value) : auto(args, header.args)
+      header.args.length === 0 && header.key.length !== 0 ? block.args.map((e) => e.value) : auto(args, header)
 
     if (header.in) included = { [header.in]: included }
 
@@ -69,13 +69,20 @@ export class LWF {
     }
 
     if (header.isKeyedObject && !header.root) {
-      let key = block.args[0].value
       if (!result[header.key]) result[header.key] = {}
+      if (block.args.length === 0) {
+        result[header.key] = {}
+        return
+      }
+      let key = block.args[0].value
       if (typeof key === 'string' || typeof key === 'number') result[header.key][key] = included
       return
     }
 
     if (header.isKeyedObject && header.root) {
+      if (block.args.length === 0) {
+        return
+      }
       let key = block.args[0].value
       if (typeof key === 'string' || typeof key === 'number') result[key] = included
       return
@@ -104,14 +111,18 @@ export class LWF {
       if (schema.root !== undefined && schema.root.isArray)
         for (const i in input) this.stringifyBlock(input[i], schema.root, result)
       else {
-        throw new Error('Input object is array, but in schema root header is not set as `isArray`')
+        throw new StringifyError(
+          'Input object is array, but in schema root header is not set as `isArray`',
+          input,
+          schema.root!
+        )
       }
     } else
       Object.keys(input).forEach((key) => {
         const block = schema.root ? schema.root : headers[key]
 
         if (!block) {
-          throw new Error(`Unknown schema key: ${key}`)
+          throw new StringifyError(`Unknown schema key: ${key}`, input[key], block)
         }
 
         this.stringifyBlock(input[key], block, result, schema.root && schema.root.isKeyedObject ? key : undefined)
@@ -130,10 +141,11 @@ export class LWF {
       let overrideData = data as Record<string, Record<string, any>>
       if (header.args.length !== 0)
         if (header.root) this.stringifyBlock(overrideData, { ...header, isKeyedObject: false }, result, prefix)
-        else
-          Object.keys(overrideData).forEach((i) =>
-            this.stringifyBlock(overrideData[i], { ...header, isKeyedObject: false }, result, i)
-          )
+        else {
+          const keys = Object.keys(overrideData)
+          if (keys.length === 0) result.push(header.key + '[]')
+          keys.forEach((i) => this.stringifyBlock(overrideData[i], { ...header, isKeyedObject: false }, result, i))
+        }
       else
         throw new StringifyError(
           'Arguments must been exists in keyedObject. Header key: ' + header.key,
@@ -152,13 +164,15 @@ export class LWF {
 
     data = data as Record<string, any>
 
-    result.push(header.key + toLazyFormat(header.in ? data[header.in] : data, header, prefix))
+    const i = header.key + toLazyFormat(header.in ? data[header.in] : data, header, prefix)
+
+    result.push(i)
 
     for (const i in data) {
       if (typeof data[i] === 'object') {
         if (header.in !== i) {
           if (!this.stringifySchema.headers[i]) {
-            throw new Error(`Unknown schema key: ${i}`)
+            throw new StringifyError(`Unknown schema key: ${i}`, data[i], header)
           }
           this.stringifyBlock(data[i], this.stringifySchema.headers[i], result)
         }
@@ -168,3 +182,5 @@ export class LWF {
 }
 
 export { LWFSchema, LWFHeader } from './types'
+
+export * from './errors'
