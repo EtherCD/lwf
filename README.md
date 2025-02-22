@@ -8,8 +8,8 @@
   <img src="https://img.shields.io/npm/v/lwf">
 
 <hr/>
-<a src="./docs/Basics-en.md">Documentation for using this format</a><br/>
-<a src="./docs/Basics-ru.md">Документация по использованию этого формата</a>
+<a href="./docs/Basics-en.md">Documentation for using this format</a><br/>
+<a href="./docs/Basics-ru.md">Документация по использованию этого формата</a>
 <hr/>
 
 </div>
