@@ -10,6 +10,16 @@ export class LWF {
   private static blocks: ParsedBlock[] = []
   private static stringifySchema: LWFSchemaPrepare
 
+  /**
+   * Parse lwf data to object
+   * @param input text of file
+   * @param schema LWFSchema
+   * @returns Object
+   * @example Usage with schema
+   * const schema: LWFSchema = { a: { key: "data", args: [ "name", "email", "age" ] } }
+   * const code = "a[EtherCD,secret@email,some random numbers]"
+   * const result = LWF.parse(code, schema) as { data: { name: "EtherCD", email: "secret@email", age: "some random numbers " } }
+   */
   static parse(input: string, schema: LWFSchema): any {
     const lexer = new LWFLexer(input)
     const parser = new LWFParser(lexer.tokenize())
@@ -100,6 +110,16 @@ export class LWF {
     result[header.key] = included
   }
 
+  /**
+   * Stringify lwf data
+   * @param input Object or Array
+   * @param schema LWFSchema
+   * @returns string
+   * @example Usage with schema
+   * const schema: LWFSchema = { a: { key: "data", args: [ "name", "email", "age" ] } }
+   * const data = { data: { name: "EtherCD", email: "secret@email", age: "some random numbers " } }
+   * const result = LWF.stringify(data, schema) as "a[EtherCD,secret@email,some random numbers]"
+   */
   static stringify(input: Record<string, any> | Array<any>, inputSchema: LWFSchema): string {
     const result: string[] = []
 
@@ -183,4 +203,4 @@ export class LWF {
 
 export { LWFSchema, LWFHeader } from './types'
 
-export * from './errors'
+export { LexerError, ParsingError, StringifyError, SchemaError } from './errors'

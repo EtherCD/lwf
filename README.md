@@ -6,6 +6,12 @@
   <img src="https://img.shields.io/npm/last-update/lwf"/>
   <img src="https://img.shields.io/github/languages/code-size/EtherCD/lwf?">
   <img src="https://img.shields.io/npm/v/lwf">
+
+<hr/>
+<a src="./docs/Basics-en.md">Documentation for using this format</a><br/>
+<a src="./docs/Basics-ru.md">Документация по использованию этого формата</a>
+<hr/>
+
 </div>
 
 # How it works? And For what?
@@ -20,7 +26,7 @@ A format designed to store data compactly while still being human readable and e
 
 The entire file consists of blocks of data written sequentially. Before the block there is an index that allows you to distinguish the data.
 
-Example:
+Example of syntax:
 
 ```
 | - index
@@ -31,7 +37,7 @@ a[Hello World!!!,1000,true,,,false]
 
 Schema provides the order of writing data inside the block, and also their keys for returning to the form of an object, and the reverse process.
 
-Example schema:
+Example schema and using:
 
 ```ts
 const schema: LWFSchema = {
@@ -40,24 +46,19 @@ const schema: LWFSchema = {
     args: ['message', 'length', 'verified', 'name', 'grammarCheck'],
   },
 }
-```
 
-And it's returns object like that!
-
-```ts
-{
+const object = {
   message: {
-    message: "Hello World!!!",
+    message: 'Hello World!!!',
     length: 1000,
     verified: true,
-    grammarCheck: false
-  }
+    grammarCheck: false,
+  },
 }
+
+const result = LWF.stringify(object, schema) // Returns a[Hello World!!!,1000,true,false]
+LWF.parse(result, schema) // Returns object.
 ```
-
-# Docs
-
-More information about schemas and working [here](./docs/Basics.md)
 
 # License
 
