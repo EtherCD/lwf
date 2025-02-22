@@ -25,19 +25,15 @@ export interface ParsedArgs {
 }
 
 export type LWFSchema = {
-	[key: string]: {
-		key: string;
-		in?: string;
-		array?: boolean;
-		args: Array<string>;
-		includes?: Array<string>;
-	};
+	[key: string]: LWFHeader;
 };
 
-export type LWFBlock = {
+export type LWFHeader = {
 	key: string;
 	in?: string;
-	array?: boolean;
+	root?: boolean;
 	args: Array<string>;
 	includes?: Array<string>;
+	isArray?: boolean;
+	isKeyedObject?: boolean;
 };

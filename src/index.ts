@@ -1,114 +1,170 @@
-import { ParsingError } from "./errors";
-import LWFLexer from "./lexer";
-import { LWFParser } from "./parse";
-import { auto, toLazyFormat } from "./schema";
-import { LWFBlock, LWFSchema, ParsedBlock } from "./types";
+import { ParsingError, SchemaError, StringifyError } from './errors'
+import LWFLexer from './lexer'
+import { LWFParser } from './parse'
+import { auto, LWFSchemaPrepare, toLazyFormat } from './schema'
+import { LWFHeader, LWFSchema, ParsedBlock } from './types'
 
 export class LWF {
-	private static parseSchema: LWFSchema;
-	private static index: number = 0;
-	private static blocks: ParsedBlock[] = [];
-	private static stringifySchema: LWFSchema;
+  private static parseSchema: LWFSchemaPrepare
+  private static index: number = 0
+  private static blocks: ParsedBlock[] = []
+  private static stringifySchema: LWFSchemaPrepare
 
-	static parse(input: string, schema: LWFSchema) {
-		const lexer = new LWFLexer(input);
-		const parser = new LWFParser(lexer.tokenize());
-		this.blocks = parser.parse();
-		this.parseSchema = schema;
-		this.index = 0;
+  static parse(input: string, schema: LWFSchema): any {
+    const lexer = new LWFLexer(input)
+    const parser = new LWFParser(lexer.tokenize())
+    this.blocks = parser.parse()
+    this.parseSchema = new LWFSchemaPrepare(schema)
+    this.index = 0
 
-		let result: Record<string, any> = {};
+    let result: any
 
-		while (this.index < this.blocks.length) {
-			this.parseBlock(this.blocks[this.index], result);
-		}
+    if (this.parseSchema.root && this.parseSchema.root!.isArray) {
+      result = []
+    } else result = {}
 
-		return result;
-	}
+    while (this.index < this.blocks.length) {
+      this.parseBlock(this.blocks[this.index], result)
+    }
 
-	private static parseBlock(block: ParsedBlock, result: Record<string, any>) {
-		const scheme = this.parseSchema[block.index];
+    return result
+  }
 
-		if (!scheme) {
-			throw new ParsingError("Index of data block is not exists in scheme: " + block.index, block.index);
-		}
+  private static parseBlock(block: ParsedBlock, result: Array<any> | Record<string, any>) {
+    const header = this.parseSchema.headers[block.index]
 
-		let included = scheme.args.length === 0 ? block.args.map((e) => e.value) : auto(block.args, scheme.args);
+    if (!header) {
+      throw new ParsingError('Index of data block is not exists in scheme: ' + block.index, block, header)
+    }
 
-		if (scheme.in) included = { [scheme.in]: included };
+    let args = header.isKeyedObject ? block.args.filter((_, i) => i !== 0) : block.args
 
-		this.index++;
+    if (header.args.length === 0 && !header.isArray)
+      throw new ParsingError(
+        'Args for block data is not set, or make sure header ' + block.index + ' is array',
+        block,
+        header
+      )
 
-		while (this.index < this.blocks.length) {
-			const nextBlock = this.blocks[this.index];
+    let included =
+      header.args.length === 0 && header.key.length !== 0 ? block.args.map((e) => e.value) : auto(args, header.args)
 
-			if (scheme.includes?.includes(nextBlock.index)) {
-				this.parseBlock(nextBlock, included);
-			} else {
-				break;
-			}
-		}
+    if (header.in) included = { [header.in]: included }
 
-		if (!scheme.array) {
-			result[scheme.key] = included;
-		} else {
-			if (!Array.isArray(result[scheme.key])) {
-				result[scheme.key] = [];
-			}
-			if (Array.isArray(included)) included.map((e) => result[scheme.key].push(e));
-			else result[scheme.key].push(included);
-		}
-	}
+    this.index++
 
-	private static translateSchema(schema: LWFSchema): LWFSchema {
-		let out: LWFSchema = {};
+    while (this.index < this.blocks.length) {
+      const nextBlock = this.blocks[this.index]
 
-		for (const s in schema) {
-			const scheme = schema[s];
-			out[scheme.key] = { ...scheme, key: s };
-		}
+      if (header.includes?.includes(nextBlock.index)) {
+        this.parseBlock(nextBlock, included)
+      } else {
+        break
+      }
+    }
 
-		return out;
-	}
+    if (Array.isArray(result)) {
+      result.push(included)
+      return
+    }
 
-	static stringify(input: Record<string, any>, schema: LWFSchema): string {
-		const result: string[] = [];
+    if (header.isKeyedObject && !header.root) {
+      let key = block.args[0].value
+      if (!result[header.key]) result[header.key] = {}
+      if (typeof key === 'string' || typeof key === 'number') result[header.key][key] = included
+      return
+    }
 
-		this.stringifySchema = this.translateSchema(schema);
+    if (header.isKeyedObject && header.root) {
+      let key = block.args[0].value
+      if (typeof key === 'string' || typeof key === 'number') result[key] = included
+      return
+    }
 
-		Object.keys(input).forEach((key) => {
-			const block = this.stringifySchema[key];
+    if (header.isArray) {
+      if (!Array.isArray(result[header.key])) {
+        result[header.key] = []
+      }
+      if (Array.isArray(included)) included.map((e) => result[header.key].push(e))
+      else result[header.key].push(included)
+      return
+    }
 
-			if (!block) {
-				throw new Error(`Unknown schema key: ${key}`);
-			}
+    result[header.key] = included
+  }
 
-			this.stringifyBlock(input[key], block, result);
-		});
+  static stringify(input: Record<string, any> | Array<any>, inputSchema: LWFSchema): string {
+    const result: string[] = []
 
-		return result.join("");
-	}
+    this.stringifySchema = new LWFSchemaPrepare(inputSchema, true)
+    let schema = this.stringifySchema
+    let headers = schema.headers
 
-	private static stringifyBlock(data: Record<string, any> | Array<Record<string, any>>, scheme: LWFBlock, result: string[]) {
-		if (scheme.array && Array.isArray(data)) {
-			if (scheme.args.length !== 0) data.forEach((item) => this.stringifyBlock(item, scheme, result));
-			else result.push(scheme.key + `[${data.join(",")}]`);
-		} else {
-			data = data as Record<string, any>;
+    if (Array.isArray(input)) {
+      if (schema.root !== undefined && schema.root.isArray)
+        for (const i in input) this.stringifyBlock(input[i], schema.root, result)
+      else {
+        throw new Error('Input object is array, but in schema root header is not set as `isArray`')
+      }
+    } else
+      Object.keys(input).forEach((key) => {
+        const block = schema.root ? schema.root : headers[key]
 
-			result.push(scheme.key + toLazyFormat(scheme.in ? data[scheme.in] : data, scheme));
-			for (const i in data) {
-				if (typeof data[i] === "object") {
-					if (scheme.in !== i) {
-						if (!this.stringifySchema[i]) {
-							throw new Error(`Unknown schema key: ${i}`);
-						}
-						this.stringifyBlock(data[i], this.stringifySchema[i], result);
-					}
-				}
-			}
-		}
-	}
+        if (!block) {
+          throw new Error(`Unknown schema key: ${key}`)
+        }
+
+        this.stringifyBlock(input[key], block, result, schema.root && schema.root.isKeyedObject ? key : undefined)
+      })
+
+    return result.join('')
+  }
+
+  private static stringifyBlock(
+    data: Record<string, any> | Array<Record<string, any>>,
+    header: LWFHeader,
+    result: string[],
+    prefix?: string
+  ) {
+    if (header.isKeyedObject) {
+      let overrideData = data as Record<string, Record<string, any>>
+      if (header.args.length !== 0)
+        if (header.root) this.stringifyBlock(overrideData, { ...header, isKeyedObject: false }, result, prefix)
+        else
+          Object.keys(overrideData).forEach((i) =>
+            this.stringifyBlock(overrideData[i], { ...header, isKeyedObject: false }, result, i)
+          )
+      else
+        throw new StringifyError(
+          'Arguments must been exists in keyedObject. Header key: ' + header.key,
+          overrideData,
+          header
+        )
+
+      return
+    }
+
+    if (header.isArray && Array.isArray(data)) {
+      if (header.args.length !== 0) data.forEach((item) => this.stringifyBlock(item, header, result))
+      else result.push(header.key + `[${data.join(',')}]`)
+      return
+    }
+
+    data = data as Record<string, any>
+
+    result.push(header.key + toLazyFormat(header.in ? data[header.in] : data, header, prefix))
+
+    for (const i in data) {
+      if (typeof data[i] === 'object') {
+        if (header.in !== i) {
+          if (!this.stringifySchema.headers[i]) {
+            throw new Error(`Unknown schema key: ${i}`)
+          }
+          this.stringifyBlock(data[i], this.stringifySchema.headers[i], result)
+        }
+      }
+    }
+  }
 }
 
-export { LWFSchema, LWFBlock } from "./types";
+export { LWFSchema, LWFHeader } from './types'

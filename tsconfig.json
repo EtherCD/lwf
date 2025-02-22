@@ -10,5 +10,5 @@
 		"esModuleInterop": true,
 		"strict": true
 	},
-	"include": ["src"]
+	"include": ["src", "test/test.test.ts"]
 }
