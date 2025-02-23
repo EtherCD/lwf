@@ -16,35 +16,83 @@ L[🇲🇨,<a href="./docs/Basics-id.md">Indonesian</a>]
 
 </div>
 
-## How it works? And For what?
+## What is this and why?
 
-This format stores data based on its location in a schema. Those. saves them so that they are in the right place according to the scheme.
+This is a data storage format similar to JSON, YAML, TOML, and others. But its distinctive feature is its compactness.
 
-A format designed to store data compactly while still being human readable and editable, and using with compress algorithms.
+This is achieved by the fact that the data is stored in its pure form, without designations of their nesting and order. To indicate this, a diagram is used that describes the order of parsing data and assembling it into a format.
 
-## Basics
+Can be useful for sending data between client and server; the format is also designed to work with compression.
+
+## How much more compact?
+
+An object like the one in [test/index.test.ts](./test/index.test.ts) has a size of 21 Kilobytes. Once converted to lwf format, it takes up 11 Kilobytes.
+
+The format is more efficient in saving space when used with objects in which the data takes up less space than the structure of this same data
+
+For example, like a map for a game, where the data is often less than its descriptions. Like this example
+
+```ts
+{
+  data: {
+    name: "Test Map",
+    color: {
+      fill: "#ffffff"
+    }
+  },
+  areas: [
+    {
+      properties: {
+        x: 0,
+        y: 0,
+        w: 0,
+        h: 0,
+      },
+      zones: [
+        {type: "teleport", x: 0, y: 0, w: 320, h: 64}
+      ]
+    }
+  ]
+}
+```
+
+In this case, in lwf format the data will look like this:
+
+```
+p[Test Map]
+c[,,#ffffff]
+a[0,0,0,0]
+z[teleport,0,0,320,64]
+```
+
+## Data storage format
 
 ### Syntax
 
-The entire file consists of blocks of data written sequentially. Before the block there is an index that allows you to distinguish the data.
+Data is stored in so-called blocks, where the values ​​inside it are data. And the letter before the table of contents block.
 
-Example of syntax:
+The format relies on sequential recording of data in a row, which means it may have gaps
 
 ```
-| - index
- | - begins of block
-  | - all data separated by , and for missing data is ,,
-a[Hello World!!!,1000,true,,,false]
+a - header
+[Something,1000] - block of data
+[,,] - indicates a pass to specify data in the next argument
 ```
 
-Schema provides the order of writing data inside the block, and also their keys for returning to the form of an object, and the reverse process.
+### Schema
 
-Example schema and using:
+For correct work with data, and correct conversion to a string and return from. You need to write a diagram that describes the data structure
+
+To correctly write a schema, you will need to fully understand what data may be in the object.
+
+A simple example of using the schema:
 
 ```ts
 const schema: LWFSchema = {
   a: {
+    // Key of the object that will be processed in this data block
     key: 'message',
+    // Sequentially written data keys that will be listed in the list of values ​​of this data
     args: ['message', 'length', 'verified', 'name', 'grammarCheck'],
   },
 }
@@ -59,13 +107,17 @@ const object = {
 }
 
 const result = LWF.stringify(object, schema) // Returns a[Hello World!!!,1000,true,false]
-LWF.parse(result, schema) // Returns object.
+LWF.parse(result, schema) // Should return an object identical to the input
 ```
 
 ## Special
 
 Thanks to
 [@mirdukkkkk](https://github.com/mirdukkkkk) for fixing and writing more technical competently guide ❤️
+
+## TODO, and other
+
+The format is currently under development, but is already usable. It needs to be improved for greater versatility. [TODO](./TODO.md)
 
 ## License
 
