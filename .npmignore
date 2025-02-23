@@ -1,0 +1,10 @@
+src/
+TODO.md
+tsup.config.ts
+tsconfig.json
+yarn.lock
+babel.config.js
+.prettierrc
+.gitignore
+test/
+docs/

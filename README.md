@@ -64,7 +64,8 @@ LWF.parse(result, schema) // Returns object.
 
 ## Special
 
-Thanks to @mirdukkkkk for fixing and writing more technical competently guide ❤️
+Thanks to
+[@mirdukkkkk](https://github.com/mirdukkkkk) for fixing and writing more technical competently guide ❤️
 
 ## License
 
