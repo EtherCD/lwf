@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/icon.png" alt="LWF">
+  <img src="docs/icon-small.svg" height="108" alt="LWF">
   <p>Lightweight Format - A format for storing data by writing sequential blocks of data, without using any designations</p>
   </hr>
 
@@ -8,13 +8,15 @@
   <img src="https://img.shields.io/npm/v/lwf">
 
 <hr/>
-<a href="./docs/Basics-en.md">Documentation for using this format</a><br/>
-<a href="./docs/Basics-ru.md">Документация по использованию этого формата</a>
+<p>Guide to Using This Format</p>
+L[🇬🇧,<a href="./docs/Basics-en.md">English</a>]
+L[🇷🇺,<a href="./docs/Basics-ru.md">Russian</a>]
+L[🇲🇨,<a href="./docs/Basics-id.md">Indonesian</a>]
 <hr/>
 
 </div>
 
-# How it works? And For what?
+## How it works? And For what?
 
 This format stores data based on its location in a schema. Those. saves them so that they are in the right place according to the scheme.
 
@@ -60,6 +62,10 @@ const result = LWF.stringify(object, schema) // Returns a[Hello World!!!,1000,tr
 LWF.parse(result, schema) // Returns object.
 ```
 
-# License
+## Special
+
+Thanks to @mirdukkkkk for fixing and writing more technical competently guide ❤️
+
+## License
 
 [MIT](./LICENSE.txt)
