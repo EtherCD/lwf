@@ -1,4 +1,5 @@
-import { SchemaError } from './errors'
+import { LWFSchemaError } from './errors'
+import LWFLexer from './lexer'
 import { LexerTokenType, LWFHeader, LWFSchema, ParsedArgs } from './types'
 
 export const auto = (elements: Array<ParsedArgs>, header: LWFHeader) => {
@@ -20,9 +21,20 @@ export const auto = (elements: Array<ParsedArgs>, header: LWFHeader) => {
   return out
 }
 
-export const toLazyFormat = (input: Record<string, any>, schema: LWFHeader, prefix?: string) => {
+export const toLazyFormat = (
+  input: Record<string, any>,
+  schema: LWFHeader,
+  prefix?: string
+) => {
   const keys = Object.keys(input)
-  const elements: Array<any> = schema.args.map((key) => (keys.indexOf(key) !== -1 ? input[key] : null))
+  const elements: Array<any> = schema.args.map((key) => {
+    if (keys.indexOf(key) !== -1) {
+      if (typeof input[key] === 'string')
+        return input[key].replace(/([\[\]\,\+\-])/g, '\\$1')
+      else if (typeof input[key] === 'boolean') return input[key] ? '+' : '-'
+      return input[key]
+    } else return null
+  })
 
   let output = '[' + (prefix ? prefix + ',' : '')
   for (const i in elements) {
@@ -54,9 +66,42 @@ export class LWFSchemaPrepare {
 
     for (const i in this.headers) {
       let header = this.headers[i]
-      if (header.root !== undefined && this.root === undefined) this.root = header
+      if (header.root !== undefined && this.root === undefined)
+        this.root = header
       else if (header.root && this.root !== undefined)
-        throw new SchemaError('Duplicates of root headers. Header key: ' + i, header)
+        throw new LWFSchemaError(
+          'Duplicates of root headers. Header key: ' + i,
+          header
+        )
     }
   }
+}
+
+export class SchemaGenerator {
+  private static headersList: Array<string> = [
+    'a',
+    'b',
+    'c',
+    'd',
+    'e',
+    'f',
+    'g',
+    '',
+  ]
+  private static currentHeader: number = 0
+
+  static generate(obj: Array<any> | Record<any, any>): LWFSchema {
+    let schema: LWFSchema = {}
+
+    if (Array.isArray(obj)) this.processArray(obj, schema)
+    else this.processObject(obj, schema)
+
+    return schema
+  }
+
+  private static processArray(obj: Array<any>, schema: LWFSchema) {
+    let newSchema = {}
+  }
+
+  private static processObject(obj: Record<any, any>, schema: LWFSchema) {}
 }

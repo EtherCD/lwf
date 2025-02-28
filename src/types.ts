@@ -12,6 +12,7 @@ export enum LexerTokenType {
   STRING,
   BOOLEAN,
   MINUS,
+  PLUS,
 }
 
 export interface ParsedBlock {

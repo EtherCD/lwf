@@ -16,6 +16,9 @@ L[🇲🇨,<a href="./docs/Basics-id.md">Indonesian</a>]
 
 </div>
 
+> [!IMPORTANT]
+> Currently in deep developing
+
 ## What is this and why?
 
 This is a data storage format similar to JSON, YAML, TOML, and others. But its distinctive feature is its compactness.
@@ -117,7 +120,7 @@ Thanks to
 
 ## TODO, and other
 
-The format is currently under development, but is already usable. It needs to be improved for greater versatility. [TODO](./TODO.md)
+The format is currently under development, but is already usable. It needs to be improved for greater versatility. [TODO](./TODO.md) [ChangeLog](./CHANGELOG.md)
 
 ## License
 

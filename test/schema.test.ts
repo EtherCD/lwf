@@ -11,7 +11,7 @@ const schema = {
 }
 
 test('Schema utils toLazyFormat', () => {
-  expect(toLazyFormat(obj, schema)).toBe('[test,,,true]')
+  expect(toLazyFormat(obj, schema)).toBe('[test,,,+]')
 })
 
 test('Schema utils auto', () => {

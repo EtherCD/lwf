@@ -5,7 +5,7 @@ const schema: LWFSchema = {
     isKeyedObject: true,
     root: true,
     key: '',
-    args: ['x', 'y', 'author', 'color', 'tag'],
+    args: ['x', 'y', 'author', 'color', 'tag', 'banned'],
     includes: ['b'],
   },
   b: {
@@ -22,9 +22,10 @@ const canvas = {
   0: {
     x: 0,
     y: 0,
-    author: 'EtherCD',
+    author: 'EtherCD+',
     color: '#ffffff',
     tag: 'Eevee',
+    banned: true,
     user: {
       name: 'sd',
       id: 'sad',
@@ -34,12 +35,13 @@ const canvas = {
     x: 1,
     y: 0,
     author: 'EtherCD',
-    color: '#ffffff',
+    color: 'rgba(0,0,0,0)',
     tag: 'Eevee',
   },
 }
 
-const translated = 'a[0,0,0,EtherCD,#ffffff,Eevee]b[sd,sad]a[1,1,0,EtherCD,#ffffff,Eevee]'
+const translated =
+  'a[0,0,0,EtherCD\\+,#ffffff,Eevee,+]b[sd,sad]a[1,1,0,EtherCD,rgba(0\\,0\\,0\\,0),Eevee]'
 
 test('Some test', () => {
   expect(LWF.stringify(canvas, schema)).toBe(translated)

@@ -1,6 +1,6 @@
 import { LWFHeader, ParsedBlock } from './types'
 
-export class LexerError extends Error {
+export class LWFLexerError extends Error {
   pos: number
   constructor(message: string, pos: number) {
     super(message)
@@ -8,7 +8,7 @@ export class LexerError extends Error {
   }
 }
 
-export class ParsingError extends Error {
+export class LWFParsingError extends Error {
   block: ParsedBlock
   header: LWFHeader
   constructor(message: string, block: ParsedBlock, header: LWFHeader) {
@@ -18,7 +18,7 @@ export class ParsingError extends Error {
   }
 }
 
-export class StringifyError extends Error {
+export class LWFStringifyError extends Error {
   obj: Object
   header: LWFHeader
   constructor(message: string, obj: Object, header: LWFHeader) {
@@ -28,7 +28,7 @@ export class StringifyError extends Error {
   }
 }
 
-export class SchemaError extends Error {
+export class LWFSchemaError extends Error {
   header: LWFHeader
   constructor(message: string, header: LWFHeader) {
     super(message)
