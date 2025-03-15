@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="docs/icon-small.svg" height="108" alt="LWF">
-  <p>Lightweight Format - A format for storing data by writing sequential blocks of data, without using any designations</p>
+  <img src="docs/icon.svg" height="108" alt="LWF">
+  <p>Lightweight Format - A binary format for storing data by writing sequential blocks of data, without using any designations</p>
   </hr>
 
   <img src="https://img.shields.io/npm/last-update/lwf"/>
@@ -16,27 +16,35 @@ L[🇲🇨,<a href="./docs/Basics-id.md">Indonesian</a>]
 
 </div>
 
-> [!IMPORTANT]
-> Currently in deep developing
+> ![IMPORTANT]
+> Currently binary variant in dev :3
 
 ## What is this and why?
 
-This is a data storage format similar to JSON, YAML, TOML, and others. But its distinctive feature is its compactness.
+This is a binary data storage format with a structure similar to JavaScript Object or Array. But its distinctive feature is its compactness writing data.
 
-This is achieved by the fact that the data is stored in its pure form, without designations of their nesting and order. To indicate this, a diagram is used that describes the order of parsing data and assembling it into a format.
+The main idea on which the format is based is that common formats like (JSON, YAML, TOML...) store data with their markup. Their markup describes how the data is nested, which fields contain which data. But for data that is repeated constantly, or partially, you can come up with a simpler option for storing data.
 
-Can be useful for sending data between client and server; the format is also designed to work with compression.
+This is how this format was invented, the idea is that only the field values ​​will be written into blocks, in a certain sequence. And the serialization result itself will not contain their markup.
+
+The data markup is taken out into a schema that you will need to write to work with this format.
+
+The format was created mainly to compact packets before sending, as well as for the most compact storage of data.
 
 ## How much more compact?
 
-An object like the one in [test/index.test.ts](./test/index.test.ts) has a size of 21 Kilobytes. Once converted to lwf format, it takes up 11 Kilobytes.
+The test data package is located here [test/index.test.ts](./test/index.test). When stored as json, it takes up 21.23 KB. When stored in lwfb, it takes up only 6.52 KB.
 
-The format is more efficient in saving space when used with objects in which the data takes up less space than the structure of this same data
+An object with an array of 200^2 objects that is in [test/pixels.test.ts](./test/pixels.test). When converted to json it is 1363.32Kb in size, in lwfb 575.01Kb.
 
-For example, like a map for a game, where the data is often less than its descriptions. Like this example
+If the data contains more numbers, then the binary nature of lwf will allow it to be compressed into just 1,2,4,8 bytes, depending on the bit depth.
+
+Also, static typing will allow more compact storage of data, but it removes only 1 byte describing the data type. Also, a type check is implemented, but typing is currently available only for one of the types.
+
+For example how to write schemas
 
 ```ts
-{
+const object = {
   data: {
     name: "Test Map",
     color: {
@@ -57,30 +65,52 @@ For example, like a map for a game, where the data is often less than its descri
     }
   ]
 }
+
+const schema = {
+  // Root object
+  a: {
+    // Describes included schemas for parsing objects
+    // Format can't process objects without schema
+    includes: ["a", "d"]
+  },
+  d: {
+    // Field at parent object where object will write.
+    key: "data",
+    // Describes fields names inside object.
+    args: ["name"],
+    includes: ["c"]
+  },
+  c: ...
+  a: {
+    // Object inside array will be processed according to this scheme
+    isArray: true,
+    key: "areas",
+    includes: ["z"]
+  },
+  z: {
+    isArray: true,
+    key: "zones",
+    args: ["type", "x","y","w","h"],
+    // If we knows what types of fields in object, we can describe it
+    types: ["str", "int", "int", "int", "int"]
+  }
+}
 ```
 
-In this case, in lwf format the data will look like this:
+The format is also great for compression, here is an example sizes gets from compression with lz4:
 
 ```
-p[Test Map]
-c[,,#ffffff]
-a[0,0,0,0]
-z[teleport,0,0,320,64]
+4.6 KB package.json.lz4
+4.1 KB package.lwf.lz4
+2.6 KB package.lwfb.lz4
+ 21 KB package.json
+9.9 KB package.lwf
+6.5 KB package.lwfb
 ```
 
-## Data storage format
+## How it contains data?
 
-### Syntax
-
-Data is stored in so-called blocks, where the values ​​inside it are data. And the letter before the table of contents block.
-
-The format relies on sequential recording of data in a row, which means it may have gaps
-
-```
-a - header
-[Something,1000] - block of data
-[,,] - indicates a pass to specify data in the next argument
-```
+Specs for format is not finished yet. But half of my ideas wrote in [this file](./specs.md)
 
 ### Schema
 
@@ -91,27 +121,48 @@ To correctly write a schema, you will need to fully understand what data may be 
 A simple example of using the schema:
 
 ```ts
-const schema: LWFSchema = {
-  a: {
-    // Key of the object that will be processed in this data block
-    key: 'message',
-    // Sequentially written data keys that will be listed in the list of values ​​of this data
-    args: ['message', 'length', 'verified', 'name', 'grammarCheck'],
-  },
+const schema: Schema = {
+    a: {
+        // Sequentially written data keys that will be listed in the list of values ​​of this data
+        args: ['message', 'length', 'verified', 'name', 'grammarCheck'],
+    },
 }
 
 const object = {
-  message: {
     message: 'Hello World!!!',
     length: 1000,
     verified: true,
     grammarCheck: false,
-  },
 }
 
-const result = LWF.stringify(object, schema) // Returns a[Hello World!!!,1000,true,false]
-LWF.parse(result, schema) // Should return an object identical to the input
+const result = lwf.serialize(object, schema) // Returns UInt8Array, with compact stored data.
+lwf.deserialize(result, schema) // Should return an object identical to the input
 ```
+
+## Deprecated format?
+
+For compatibility the previous implementation was left here, it is slower. Although it can be useful if data readability is important.
+
+## Performance
+
+The new binary implementation of the format works faster than its predecessor.
+Let's look at the numbers for [test/pixels.test.ts](./test/pixels.test) with 200^2 length array.
+
+CPU: i5-3330
+
+```
+┌─────────┬──────┬─────┬──────┐
+│ (index) │ LWFB │ LWF │ JSON │
+├─────────┼──────┼─────┼──────┤
+│ 0       │ 59   │ 178 │ 11   │
+└─────────┴──────┴─────┴──────┘
+```
+
+Binary realization is more efficient, but why? The serialization code is optimized to the point of horror. Use UInt8Array instead of dynamic array, non-recursive implementation, use of extra arrays is minimized.
+
+## Future?
+
+I expect to bring the format to a more universal form. Add the ability to create these schemes automatically, and maybe even write them to files. But since schemes take up almost as much space as simple descriptions in JSON, the difference in size will be minimal. Of course, until an object starts using 2 or more such objects. There are also problems with the design of the format, which is aimed at optimizing size and speed.
 
 ## Special
 

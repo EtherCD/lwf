@@ -1,36 +1,37 @@
 {
-  "name": "lwf",
-  "description": "Lightweight Format - a format for storing data by writing sequential blocks of data, without using any designations",
-  "license": "MIT",
-  "version": "1.4.0",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/EtherCD/lwf"
-  },
-  "keywords": [
-    "format",
-    "serialization",
-    "compact"
-  ],
-  "main": "dist/index.js",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
-  "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts",
-    "test": "jest"
-  },
-  "dependencies": {},
-  "devDependencies": {
-    "@babel/preset-env": "^7.26.9",
-    "@babel/preset-typescript": "^7.26.0",
-    "@types/jest": "^29.5.14",
-    "jest": "^29.7.0",
-    "ts-node": "^10.9.2",
-    "tsup": "^8.3.6",
-    "typescript": "^5.7.3"
-  },
-  "author": {
-    "name": "EtherCD",
-    "url": "https://github.com/EtherCD"
-  }
+    "name": "lwf",
+    "description": "Lightweight Format - a format for storing data by writing sequential blocks of data, without using any designations",
+    "license": "MIT",
+    "version": "1.4.0",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/EtherCD/lwf"
+    },
+    "keywords": [
+        "format",
+        "serialization",
+        "compact"
+    ],
+    "main": "dist/index.js",
+    "module": "dist/index.mjs",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsup src/index.ts --format esm,cjs --dts",
+        "test": "jest"
+    },
+    "dependencies": {},
+    "devDependencies": {
+        "@babel/preset-env": "^7.26.9",
+        "@babel/preset-typescript": "^7.26.0",
+        "@types/jest": "^29.5.14",
+        "jest": "^29.7.0",
+        "ts-node": "^10.9.2",
+        "tsup": "^8.3.6",
+        "tsx": "^4.19.3",
+        "typescript": "^5.7.3"
+    },
+    "author": {
+        "name": "EtherCD",
+        "url": "https://github.com/EtherCD"
+    }
 }

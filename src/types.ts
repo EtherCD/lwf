@@ -1,74 +1,74 @@
-export interface LexerToken {
-  type: LexerTokenType
-  value: string | number | null | boolean
+export type HexNumber = number
+
+export type RawSchema = Record<string, StaticTypedSchema>
+export type Schema = Record<string, ProcessedSchemaValue>
+
+export type SingleSchema = ProcessedSchemaValue
+export type RawSingleSchema = StaticTypedSchema
+
+export type StaticTypedSchema = {
+    /**
+     * Specifies which fields will be converted and their sequence when writing.
+     *
+     * NOTE: It is better to specify the order from those data that are most often present to those that are absent, so that the data is recorded more compactly.
+     */
+    args?: GenericSchemaValues[]
+    /**
+     * Specifies the key by which the object will be written to the top object of the structure
+     */
+    key?: GenericSchemaValues
+    /**
+     * Can write data more efficient with static typed values.
+     */
+    types?: (typeof TypeSchema)[keyof typeof TypeSchema][]
+    /**
+     * Indicates which schemas are nested inside
+     */
+    includes?: string[]
+    /**
+     * Specifies that the diagram will describe objects within the array.
+     */
+    isArray?: boolean
+    /**
+     * An object described by the principle [unique key]: value. Will be written as the same data blocks, but a key will be placed at the beginning of them
+     */
+    isKeyedObject?: boolean
 }
 
-export enum LexerTokenType {
-  LBRACKET,
-  RBRACKET,
-  COMMA,
-  NOTHING,
-  NUMBER,
-  STRING,
-  BOOLEAN,
-  MINUS,
-  PLUS,
+export type ProcessedSchemaValue = StaticTypedSchema & {
+    /**
+     * Indicates which schemas are nested inside
+     */
+    includes?: number[]
 }
 
-export interface ParsedBlock {
-  index: string
-  args: Array<ParsedArgs>
-}
-
-export interface ParsedArgs {
-  type: string | number
-  value: string | number | null | boolean
-}
+export type GenericSchemaValues = number | string
 
 /**
- * Object key - table of contents of the data block
- * Object value - the scheme by which the data block will be compared to the final object
+ * Types of values.
  */
-export type LWFSchema = {
-  [key: string]: LWFHeader
+export enum TypeByte {
+    Int = 0x00,
+    nInt = 0x01,
+    Bool = 0x02,
+    Char = 0x03,
+    String = 0x04,
+    Empty = 0x05,
+    EmptyDepth = 0x06,
+    Null = 0x07,
 }
 
-/**
- * Data block diagram indicating how data can be expanded and what data can be nested
- */
-export type LWFHeader = {
-  /**
-   * The key to this is that the data block will be written in the final object
-   */
-  key: string
-  /**
-   * Specifies the key by which data will be written inside a child object relative to the current object
-   */
-  in?: string
-  /**
-   * Indicates whether the schema is the root for the entire object, this allows you to describe what the final object is like
-   */
-  root?: boolean
-  /**
-   * Indicates a list of keys by which data will be recorded or taken from the object being parsed,
-   * and indicates the order in which data is written from the object
-   */
-  args: Array<string>
-  /**
-   * A list of nested objects must contain a table of contents of the objects inside
-   */
-  includes?: Array<string>
-  /**
-   * Indicates the recording principle for subsequent data blocks of the same type. Will write the following objects to the array sequentially
-   */
-  isArray?: boolean
-  /**
-   * Indicates the recording principle for subsequent data blocks of the same type. Records data on keys that point to child objects within
-   */
-  isKeyedObject?: boolean
-  /**
-   * Specifies which arguments are required. Because the format skips all empty elements.
-   * ["required argument", "substitute if argument is empty"]
-   */
-  requiredArgs?: Array<[string, string | number]>
+export const TypeSchema = {
+    Any: 'any',
+    Int: 'int',
+    nInt: 'nint',
+    Bool: 'bool',
+    Char: 'char',
+    String: 'str',
 }
+
+export enum TypeInSchema {}
+
+export type ByteDepth = 8 | 16 | 32 | 64
+
+export type Options = {}
