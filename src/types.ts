@@ -48,27 +48,35 @@ export type GenericSchemaValues = number | string
  * Types of values.
  */
 export enum TypeByte {
-    Int = 0x00,
-    nInt = 0x01,
-    Bool = 0x02,
-    Char = 0x03,
-    String = 0x04,
-    Empty = 0x05,
-    EmptyDepth = 0x06,
-    Null = 0x07,
+    VarInt32 = 0x00,
+    UVarInt32 = 0x01,
+    VarInt64 = 0x02,
+    UVarInt64 = 0x03,
+    VarIntBN = 0x04,
+    FloatFE = 0x05,
+    FloatIEEE = 0x06,
+    Bool = 0x07,
+    String = 0x08,
+    Null = 0x09,
+    Empty = 0x0a,
+    EmptyCount = 0x0b,
 }
 
 export const TypeSchema = {
     Any: 'any',
     Int: 'int',
-    nInt: 'nint',
     Bool: 'bool',
     Char: 'char',
     String: 'str',
 }
 
-export enum TypeInSchema {}
-
 export type ByteDepth = 8 | 16 | 32 | 64
 
-export type Options = {}
+export type VarsContext = {
+    buffer: Uint8Array
+    offset: number
+    ensure: (elements: number) => void
+    write: (byte: number) => void
+    read: () => number
+    schema: SingleSchema
+}

@@ -52,10 +52,10 @@ const object = {
     areas: [
         {
             properties: {
-                x: 0,
-                y: 0,
-                w: 0,
-                h: 0,
+                x: 0.0005,
+                y: 0.0005,
+                w: 0.0005,
+                h: 0.0005,
             },
             zones: [{ type: 'teleport', x: 0, y: 0, w: 320, h: 64 }],
         },

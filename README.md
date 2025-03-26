@@ -35,7 +35,7 @@ The format was created mainly to compact packets before sending, as well as for 
 
 The test data package is located here [test/index.test.ts](./test/index.test). When stored as json, it takes up 21.23 KB. When stored in lwfb, it takes up only 6.52 KB.
 
-An object with an array of 200^2 objects that is in [test/pixels.test.ts](./test/pixels.test). When converted to json it is 1363.32Kb in size, in lwfb 575.01Kb.
+An object with an array of 200^2 objects that is in [test/pixels.test.ts](./test/pixels.test). When converted to json it is 1123.93Kb in size, in lwfb 575Kb.
 
 If the data contains more numbers, then the binary nature of lwf will allow it to be compressed into just 1,2,4,8 bytes, depending on the bit depth.
 

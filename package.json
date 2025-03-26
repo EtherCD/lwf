@@ -19,7 +19,9 @@
         "build": "tsup src/index.ts --format esm,cjs --dts",
         "test": "jest"
     },
-    "dependencies": {},
+    "dependencies": {
+        "ieee754": "^1.2.1"
+    },
     "devDependencies": {
         "@babel/preset-env": "^7.26.9",
         "@babel/preset-typescript": "^7.26.0",

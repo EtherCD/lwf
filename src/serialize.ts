@@ -1,19 +1,31 @@
+import ieee754 from 'ieee754'
 import { SchemaError, SerializationError } from './errors'
-import { Options, RawSchema, Schema, SingleSchema, TypeByte } from './types'
+import { RawSchema, Schema, SingleSchema, TypeByte, VarsContext } from './types'
 import { processOptions, processSchema } from './util'
+import { UVarInt32, Value } from './vars'
 
 var objectIndex = 0
 var schemaIndex = 0
 var schemas: SingleSchema[] = []
 var objects: [Object, number?][]
 
-var buffer = new Uint8Array(1)
-var bufferIndex = 0
-
-const typeHandlers = {
-    number: serializeInt,
-    string: serializeString,
-    boolean: serializeBool,
+var context = {
+    buffer: new Uint8Array(1),
+    offset: 0,
+    ensure(size) {
+        if (this.offset + size > this.buffer.length) {
+            let newBuffer = new Uint8Array(this.buffer.length * 2 + size)
+            newBuffer.set(this.buffer)
+            this.buffer = newBuffer
+        }
+    },
+    write(byte) {
+        this.buffer[this.offset++] = byte
+    },
+    read() {
+        return this.buffer[this.offset++]
+    },
+    schema: schemas,
 }
 
 const typesToTypes = {
@@ -24,37 +36,36 @@ const typesToTypes = {
     str: 'string',
 }
 
-export function serialize(obj: Object, schema: RawSchema, options?: Options) {
-    options = processOptions(options)
+export function serialize(obj: Object, schema: RawSchema) {
+    // options = processOptions(options)
     schemas = processSchema(schema)
-
     objects = [[obj]]
 
     while (objectIndex < objects.length) {
-        serializeObject()
+        serializeObject.call(context)
         objectIndex++
     }
 
-    const returnBuffer = buffer.slice(0, bufferIndex)
+    const returnBuffer = context.buffer.slice(0, context.offset)
     free()
     return returnBuffer
 }
 
-function serializeObject() {
+function serializeObject(this: VarsContext) {
     const [object, index = schemaIndex] = objects[objectIndex]
     let iSchema = schemas[index] || { args: [] }
     const sExists = schemas.length > index
 
     if (!sExists) throw new SchemaError(`Schema for ${object} is not described`)
 
-    serializeInt(index, false)
+    UVarInt32.write.call(this, index)
 
     if (Array.isArray(object)) {
         for (const element of object) {
             if (typeof element === 'object' && element !== null) {
                 objects.push([element, index])
             } else {
-                serializeValue(element)
+                Value.write.call(this, element)
             }
         }
         return
@@ -92,85 +103,20 @@ function serializeObject() {
 
         const shift = schemaIndex - eIndex
         if (shift === 1) {
-            ensureCapacity(1)
-            buffer[bufferIndex++] = TypeByte.Empty
+            this.ensure(1)
+            this.buffer[this.offset++] = TypeByte.Empty
         } else if (shift > 1) {
-            ensureCapacity(2)
-            buffer[bufferIndex++] = TypeByte.EmptyDepth
-            buffer[bufferIndex++] = shift & 0xff
+            this.ensure(2)
+            this.buffer[this.offset++] = TypeByte.EmptyCount
+            this.buffer[this.offset++] = shift & 0xff
         }
         eIndex++
 
-        //         buffer[bufferIndex++] = TypeByte.Null
+        //         buffer[context.offset++] = TypeByte.Null
 
         if (typeof value !== 'object') {
-            serializeValue(value, types ? types[schemaIndex] : undefined)
+            Value.write.call(this, value)
         }
-    }
-}
-
-function serializeValue(input: unknown, type?: string) {
-    if (type && type !== 'any' && typesToTypes[type] !== typeof input)
-        throw new Error(
-            `Type of value is not assignable to schema ${input} ${type} ${
-                typesToTypes[type]
-            } ${typeof input}`
-        )
-    const handler = typeHandlers[typeof input as keyof typeof typeHandlers]
-    if (handler) handler(input as never, type === undefined)
-    else throw new Error("LWFB can't process bigint, symbol, function")
-}
-
-function serializeInt(input: number, writeType: boolean) {
-    ensureCapacity(10)
-    const isNegative = input < 0
-    if (isNegative) input = -input
-
-    if (writeType)
-        buffer[bufferIndex++] = isNegative ? TypeByte.nInt : TypeByte.Int
-    do {
-        let byte = input & 0x7f
-        input >>= 7
-        if (input > 0) byte |= 0x80
-        buffer[bufferIndex++] = byte
-    } while (input > 0)
-
-    if (isNegative) buffer[bufferIndex - 1] |= 0x40
-}
-
-function serializeString(value: string, writeType: boolean) {
-    if (value.length === 0) {
-        ensureCapacity(1)
-        if (writeType) buffer[bufferIndex++] = TypeByte.String
-        buffer[bufferIndex++] = 0x00
-        return
-    }
-    if (value.length === 1) {
-        ensureCapacity(2)
-        if (writeType) buffer[bufferIndex++] = TypeByte.Char
-        buffer[bufferIndex++] = value.charCodeAt(0)
-        return
-    }
-
-    if (writeType) buffer[bufferIndex++] = TypeByte.String
-
-    serializeInt(value.length, false)
-    ensureCapacity(value.length)
-
-    for (let i = 0; i < value.length; i++)
-        buffer[bufferIndex++] = value.charCodeAt(i)
-}
-
-function serializeBool(input: boolean) {
-    ensureCapacity(1)
-    buffer[buffer.length - 1] |= input ? 0x01 : 0x01
-}
-
-function ensureCapacity(size) {
-    if (bufferIndex + size > buffer.length) {
-        let newBuffer = new Uint8Array(buffer.length * 2 + size)
-        newBuffer.set(buffer)
-        buffer = newBuffer
     }
 }
 
@@ -180,6 +126,6 @@ function free() {
     schemas = []
     objects = []
 
-    buffer = new Uint8Array(1024)
-    bufferIndex = 0
+    context.buffer = new Uint8Array(1024)
+    context.offset = 0
 }

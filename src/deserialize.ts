@@ -1,9 +1,9 @@
+import ieee754 from 'ieee754'
 import { serialize } from './serialize'
-import { SingleSchema, TypeByte } from './types'
+import { SingleSchema, TypeByte, VarsContext } from './types'
 import { processSchema } from './util'
+import { UVarInt32, Value } from './vars'
 
-var buffer = new Uint8Array()
-var bufferIndex = 0
 var blockIndex = 0
 
 var decoder = new TextDecoder()
@@ -11,6 +11,25 @@ var decoder = new TextDecoder()
 var schemas: SingleSchema[]
 
 var objects = []
+
+var context = {
+    buffer: new Uint8Array(1),
+    offset: 0,
+    ensure(size) {
+        if (this.offset + size > this.buffer.length) {
+            let newBuffer = new Uint8Array(this.buffer.length * 2 + size)
+            newBuffer.set(this.buffer)
+            this.buffer = newBuffer
+        }
+    },
+    write(byte) {
+        this.buffer[this.offset++] = byte
+    },
+    read() {
+        return this.buffer[this.offset++]
+    },
+    schema: schemas,
+}
 
 export function testde() {
     const schema = {
@@ -24,27 +43,29 @@ export function testde() {
     }
     schemas = processSchema(schema)
 
-    buffer = serialize(
+    context.buffer = serialize(
         {
             name: 'EtherCD',
-            age: 17,
+            age: 20.23,
             verified: true,
             other: 'Not1!!!',
-            skills: ['programming', 'cumming'],
         },
         schema
     )
 
-    while (bufferIndex < buffer.length) {
-        objects.push(deserializeBlock())
+    console.log(context.buffer)
+
+    while (context.offset < context.buffer.length) {
+        objects.push(deserializeBlock.call(context))
     }
 
     console.log(objects)
 }
 
-function deserializeBlock() {
-    const index = buffer[bufferIndex++]
+function deserializeBlock(this: VarsContext) {
+    const index = UVarInt32.read.call(this)
     const schema = schemas[index] ?? undefined
+    console.log(index)
 
     if (schema === undefined) throw new Error('Schema is not exists.')
 
@@ -60,56 +81,12 @@ function deserializeBlock() {
     for (; blockIndex < args.length; blockIndex++) {
         const key = args[blockIndex]
 
-        if (buffer[bufferIndex] === TypeByte.Empty) {
-            blockIndex += buffer[bufferIndex++]
-        } else if (buffer[bufferIndex] === TypeByte.EmptyDepth)
-            blockIndex += buffer[(bufferIndex += 2)]
+        if (this.buffer[this.offset] === TypeByte.Empty) {
+            blockIndex += this.buffer[this.offset++]
+        } else if (this.buffer[this.offset] === TypeByte.EmptyCount)
+            blockIndex += this.buffer[(this.offset += 2)]
 
-        outObject[key] = deserializeValue()
+        outObject[key] = Value.read.call(this)
     }
     return outObject
-}
-
-function deserializeValue() {
-    switch (buffer[bufferIndex++]) {
-        case TypeByte.Int:
-            return deserializeInt()
-        case TypeByte.String:
-            return deserializeString()
-        case TypeByte.Bool:
-            return deserializeBool()
-        default:
-            throw new Error('asdas')
-    }
-}
-
-function deserializeInt() {
-    let result = 0
-    let shift = 0
-    let negative = false
-
-    while (true) {
-        const byte = buffer[bufferIndex++]
-        if (shift === 0 && (byte & 0x40) !== 0) negative = true
-
-        result |= (byte & 0x3f) << shift
-        shift += 7
-
-        if ((byte & 0x80) === 0) break
-    }
-
-    return negative ? -result : result
-}
-
-function deserializeString() {
-    const length = deserializeInt()
-    if (length <= 0) return ''
-
-    const start = bufferIndex
-    bufferIndex += length
-    return decoder.decode(buffer.subarray(start, bufferIndex))
-}
-
-function deserializeBool() {
-    return buffer[bufferIndex++] ? true : false
 }
