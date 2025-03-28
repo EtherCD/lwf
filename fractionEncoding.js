@@ -216,16 +216,112 @@ function decodeFraction() {
 //
 // encodeFraction()
 
-offset = 0
-const num = 9007199254740991 ** 2
+// offset = 0
+// const num = 9007199254740991 ** 2
 
-console.log(num)
+// console.log(num)
 
-uint64.write(num)
-console.log(buffer, offset)
-offset = 0
-console.log(uint64.read())
+// uint64.write(num)
+// console.log(buffer, offset)
+// offset = 0
+// console.log(uint64.read())
 
+const obj = {
+    a: {
+        link: ['b', 'c'],
+    },
+    b: {
+        data: 'like',
+    },
+    c: {
+        data: 'lol',
+        link: ['z'],
+    },
+    z: {
+        data: 'Ny',
+    },
+}
+
+function processSchema(schema) {
+    const keys = Object.keys(schema)
+    const newSchema = JSON.parse(JSON.stringify(schema))
+    let result = []
+
+    console.log(schema)
+
+    for (const i of keys) {
+        const element = schema[i]
+
+        if (element.includes) {
+            let includesIndexes = []
+            let includesObjects = []
+            let ind = 0
+
+            for (const includeKey of element.includes) {
+                const includeIndex = keys.indexOf(includeKey)
+                if (includeIndex === -1) {
+                    throw new SchemaError(
+                        `Trying to include non-existent schema: \`${includeKey}\``
+                    )
+                }
+
+                includesIndexes.push(includeIndex)
+                if (!(includeKey in newSchema))
+                    throw new SchemaError(
+                        `Trying to include non-existent schema: \`${includeKey}\``
+                    )
+                includesObjects[ind++] = newSchema[includeKey].key + ''
+            }
+            element.includesIndexes = includesIndexes
+            element.includesObjects = includesObjects
+        }
+
+        if (!element.isArray && !element.isKeyedObject) {
+            if (!element.args) {
+                throw new SchemaError(
+                    `In schema with key \`${element.key}\`, args must be described`
+                )
+            }
+        }
+
+        result.push(element)
+    }
+
+    return result
+}
+
+const process = (obj) => {
+    const keys = Object.keys(obj)
+    let arr = []
+
+    for (const element of keys) {
+        let result = obj[element]
+        if (result.link) {
+            let indexesList = []
+            for (const i of result.link) {
+                indexesList.push(obj[i].data)
+            }
+            result.indexesList = indexesList
+        }
+        arr.push(result)
+    }
+
+    return arr
+}
+
+console.log(
+    processSchema({
+        a: {
+            key: 'HYU',
+            args: ['name', 'age', 'status', 'developer'],
+            includes: ['b'],
+        },
+        b: {
+            key: 'badges',
+            args: ['Summer', 'Autumn', 'Winter', 'Spring'],
+        },
+    })
+)
 // uvarint64.write(18446744073709549567n)
 // offset = 0
 // console.log(buffer)

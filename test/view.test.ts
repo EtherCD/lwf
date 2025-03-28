@@ -13,7 +13,8 @@ test('View example in bytes', () => {
 })
 
 const schema: Schema = {
-    a: {
+    g: {
+        args: [],
         includes: ['d', 'a'],
     },
     d: {

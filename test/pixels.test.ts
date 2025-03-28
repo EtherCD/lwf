@@ -18,6 +18,10 @@ test('Test sizes of serialized data', () => {
 
 const schema = {
     a: {
+        args: [],
+        includes: ['p'],
+    },
+    p: {
         key: 'pixels',
         args: ['x', 'y', 'color'],
         isArray: true,

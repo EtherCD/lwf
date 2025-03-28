@@ -35,13 +35,17 @@ export const Value = {
             case TypeByte.UVarInt64:
                 return UVarInt64.read.call(this)
             case TypeByte.VarIntBN:
-                return VarIntBN.read.call(this)
+                const sign = this.read()
+                const val = VarIntBN.read.call(this)
+                return sign ? -val : val
             case TypeByte.FloatIEEE:
                 return FloatIEEE.read.call(this)
             case TypeByte.FloatFE:
                 return FloatFE.read.call(this)
             case TypeByte.String:
                 return String.read.call(this)
+            default:
+                throw new Error('TODO: Place error here')
         }
     },
     write(this: VarsContext, value: unknown) {
@@ -54,9 +58,9 @@ export const Value = {
                 if (value > INT_64_MAX || value < INT_64_MIN)
                     throw new Error('TODO: Place error here')
 
-                if ((value | 0) !== value) {
-                    this.write(TypeByte.FloatFE)
-                    FloatFE.write.call(this, value)
+                if (!Number.isInteger(value)) {
+                    this.write(TypeByte.FloatIEEE)
+                    FloatIEEE.write.call(this, value)
                     return
                 }
 
@@ -79,16 +83,25 @@ export const Value = {
                     this.write(TypeByte.VarInt64)
                     VarInt64.write.call(this, value)
                 }
+                return
             case 'bigint':
                 if (value > BIG_INT_MAX || value < -BIG_INT_MAX)
                     throw new Error('TODO: Place error here')
 
                 this.write(TypeByte.VarIntBN)
-                VarIntBN.write.call(this, value)
+                this.write(value < 0 ? 1 : 0)
+                VarIntBN.write.call(
+                    this,
+                    value < 0 ? -BigInt(value) : BigInt(value)
+                )
                 return
             case 'string':
                 this.write(TypeByte.String)
                 String.write.call(this, value)
+                return
+            case 'object':
+                if (value === null) this.write(TypeByte.Null)
+                else throw new Error('TODO: Place error here')
                 return
             default:
                 throw new Error('TODO: Place error here')
@@ -98,6 +111,7 @@ export const Value = {
 
 /**
  * Encoding Int to VarInt
+ *
  * Limitations: signed Int32
  */
 const VarInt32 = {
@@ -111,6 +125,7 @@ const VarInt32 = {
 
 /**
  * Encoding Int to VarInt
+ *
  * Limitations: unsigned Int32
  */
 export const UVarInt32 = {
@@ -141,6 +156,7 @@ export const UVarInt32 = {
 
 /**
  * Encoding Int64 to VarInt
+ *
  * Limitations: signed Int64
  */
 const VarInt64 = {
@@ -239,14 +255,16 @@ const FloatFE = {
 
 /**
  * IEEE754 Encoding
- * @param this
  */
 const FloatIEEE = {
     read(this: VarsContext) {
-        return ieee754.read(this.buffer, this.offset, false, 54, 8)
+        const result = ieee754.read(this.buffer, this.offset, false, 54, 8)
+        this.offset += 8
+        return result
     },
     write(this: VarsContext, value: number) {
         ieee754.write(this.buffer, value, this.offset, false, 54, 8)
+        this.offset += 8
     },
 }
 
@@ -289,6 +307,31 @@ const String = {
 
         for (let i = 0; i < value.length; i++)
             this.buffer[this.offset++] = value.charCodeAt(i)
+    },
+}
+
+export const Empty = {
+    write(this: VarsContext, count: number) {
+        if (count === 1) this.write(TypeByte.Empty)
+        else {
+            this.write(TypeByte.EmptyCount)
+            UVarInt32.write.call(this, count)
+        }
+    },
+    read(this: VarsContext) {
+        const header = this.read()
+        switch (header) {
+            case TypeByte.Empty:
+                return 1
+            case TypeByte.EmptyCount:
+                return UVarInt32.read.call(this)
+            default:
+                throw new Error('TODO: ADD ERROROROROR')
+        }
+    },
+    check(this: VarsContext) {
+        const header = this.buffer[this.offset]
+        return header === TypeByte.Empty || header === TypeByte.EmptyCount
     },
 }
 

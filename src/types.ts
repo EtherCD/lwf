@@ -30,6 +30,10 @@ export type StaticTypedSchema = {
      */
     isArray?: boolean
     /**
+     * Indicates that the array may contain more than just objects, and that they should be written in the correct order.
+     */
+    arrayContainValues?: boolean
+    /**
      * An object described by the principle [unique key]: value. Will be written as the same data blocks, but a key will be placed at the beginning of them
      */
     isKeyedObject?: boolean
@@ -39,7 +43,11 @@ export type ProcessedSchemaValue = StaticTypedSchema & {
     /**
      * Indicates which schemas are nested inside
      */
-    includes?: number[]
+    includesIndexes?: number[]
+    /**
+     * Indicates which schemas are nested inside
+     */
+    includesObjects?: string[]
 }
 
 export type GenericSchemaValues = number | string
@@ -75,8 +83,19 @@ export type ByteDepth = 8 | 16 | 32 | 64
 export type VarsContext = {
     buffer: Uint8Array
     offset: number
+
     ensure: (elements: number) => void
     write: (byte: number) => void
     read: () => number
-    schema: SingleSchema
+
+    schema: SingleSchema[]
+}
+
+export type WriteBlockContext = VarsContext & {
+    sOffset: number
+    nested: [object, number?][]
+}
+
+export type ReadBlockContext = VarsContext & {
+    readBuffer: Map<number, Object>
 }
