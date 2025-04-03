@@ -10,7 +10,7 @@ test('Lol', () => {
         b: {
             key: 'badges',
             isArray: true,
-            arrayContainValues: true,
+            canContainNotObjects: true,
             args: ['Summer', 'Autumn', 'Winter', 'Spring'],
         },
     })

@@ -1,3 +1,4 @@
+import { deepStrictEqual } from 'assert'
 import lwf from '../src'
 
 test('Test sizes of serialized data', () => {
@@ -6,6 +7,8 @@ test('Test sizes of serialized data', () => {
 
     console.log('Size in json: ' + Math.round(jsonData.length / 10.24) / 100)
     console.log('Size in lwfb: ' + Math.round(binaryData.length / 10.24) / 100)
+
+    deepStrictEqual(lwf.deserialize(binaryData, schema), object)
 })
 
 const schema = new lwf.Schema({

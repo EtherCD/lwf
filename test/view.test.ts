@@ -111,7 +111,7 @@ const schema = new lwf.Schema({
     t: {
         key: 'types',
         isArray: true,
-        arrayContainValues: true,
+        canContainNotObjects: true,
     },
 })
 

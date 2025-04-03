@@ -25,7 +25,7 @@ export type RawSchemaValue = {
     /**
      * Indicates that the array may contain more than just objects, and that they should be written in the correct order.
      */
-    arrayContainValues?: boolean
+    canContainNotObjects?: boolean
     /**
      * An object described by the principle [unique key]: value. Will be written as the same data blocks, but a key will be placed at the beginning of them
      */
@@ -68,9 +68,9 @@ export enum TypeByte {
 }
 
 /**
- * obj, overrideIndex, isArrayWithOnlyValues
+ * obj, overrideIndex, isArrayWithoutObjects, key
  */
-export type WriteStackValue = [Object, number?, boolean?]
+export type WriteStackValue = [Object, number?, boolean?, string?]
 
 export type ReadStackValue = [Object]
 

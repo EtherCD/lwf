@@ -5,7 +5,7 @@ test('asda', () => {
         a: {
             includes: ['b'],
             isArray: true,
-            arrayContainValues: true,
+            canContainNotObjects: true,
         },
         b: {
             key: 'a',

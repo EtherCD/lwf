@@ -4,29 +4,47 @@ import { Schema } from '../src/internal/schema'
 import fs from 'fs'
 
 const pixels: { x: number; y: number; color: string }[] = []
-for (let x = 0; x < 255; x++)
-    for (let y = 0; y < 255; y++) pixels.push({ x, y, color: '#000000' })
+for (let x = 0; x < 10; x++)
+    for (let y = 0; y < 10; y++) pixels.push({ x, y, color: '#000000' })
 
 const obj = {
-    width: 255,
-    height: 255,
-    pixels,
+    properties: [20, 20, 20, { lite: true }, 20],
+    players: {
+        0: {
+            name: 'EtherCD',
+        },
+    },
 }
 
 test('Deser tests', () => {
     const schema = new Schema({
         a: {
             args: ['width', 'height'],
-            includes: ['b'],
+            includes: ['b', 'c', 'd'],
         },
         b: {
             args: ['x', 'y', 'color'],
             isArray: true,
             key: 'pixels',
         },
+        c: {
+            args: ['lite'],
+            isArray: true,
+            canContainNotObjects: true,
+            key: 'properties',
+        },
+        d: {
+            args: ['name'],
+            key: 'players',
+            isKeyedObject: true,
+        },
     })
 
     const buffer = lwf.serialize(obj, schema)
 
-    deepStrictEqual(lwf.deserialize(buffer, schema), obj)
+    const out = lwf.deserialize(buffer, schema)
+
+    console.log(out)
+
+    deepStrictEqual(out, obj)
 })

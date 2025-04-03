@@ -10,9 +10,10 @@ export class WriteStack {
     add(
         object: Object,
         overrideIndex: number = null,
-        isArrayWithOnlyValues: boolean = null
+        isArrayWithoutObjects: boolean = null,
+        key: string = null
     ) {
-        this.array.push([object, overrideIndex, isArrayWithOnlyValues])
+        this.array.push([object, overrideIndex, isArrayWithoutObjects, key])
     }
 
     pop() {
@@ -58,9 +59,7 @@ export class ReadStack {
     }
 
     startArray() {
-        if (this.arrayIndex === -1) {
-            this.arrayIndex = 0
-        }
+        this.arrayIndex = 0
     }
 
     isLastArray() {
@@ -76,9 +75,85 @@ export class ReadStack {
         this.arrayIndex++
     }
 
+    addObjectToObject(key: string) {
+        this.lastRef[key] = {}
+    }
+
+    addValueToArray(value: unknown) {
+        this.lastRef[this.arrayIndex] = value
+        this.arrayIndex++
+    }
+
+    setValueToObject(key: string, field: string, value: unknown) {
+        this.lastRef[key][field] = value
+    }
+
     setValue(field: string, value: unknown) {
         if (this.arrayIndex !== -1) {
             this.lastRef[this.arrayIndex - 1][field] = value
         } else this.lastRef[field] = value
+    }
+}
+
+export class ObjectBuilder {
+    stack: (Object | Array<unknown>)[]
+    path: (string | number)[]
+
+    constructor(isArray: boolean) {
+        this.stack = [isArray ? [] : {}]
+        this.path = []
+    }
+
+    startObject(key: string | number) {
+        const newObj = {}
+
+        if (Array.isArray(this.current)) {
+            this.current.push(newObj)
+        } else {
+            this.current[key] = newObj
+        }
+
+        this.stack.push(newObj)
+        if (key) this.path.push(key)
+    }
+
+    startArray(key: string | number) {
+        const newArr = []
+
+        if (Array.isArray(this.current)) {
+            this.current.push(newArr)
+        } else {
+            this.current[key] = newArr
+        }
+
+        this.stack.push(newArr)
+        if (key) this.path.push(key)
+    }
+
+    setValue(key: string | number, value: unknown) {
+        if (Array.isArray(this.current)) {
+            this.current.push(value)
+        } else {
+            this.current[key] = value
+        }
+    }
+
+    end() {
+        if (this.stack.length > 1) {
+            this.stack.pop()
+            this.path.pop()
+        }
+    }
+
+    get current() {
+        return this.stack[this.stack.length - 1]
+    }
+
+    get isArray() {
+        return Array.isArray(this.current)
+    }
+
+    getResult() {
+        return this.stack[0]
     }
 }

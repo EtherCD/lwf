@@ -56,6 +56,7 @@ export class WriteContext extends Context {
 export class ReadContext extends Context {
     stack: ReadStack
     lastNestingDepth = 0
+    lastIndex: number
 
     constructor(buffer: Uint8Array, schema: Schema) {
         super(schema)
@@ -69,12 +70,22 @@ export class ReadContext extends Context {
         }
     }
 
-    nesting(schema: SchemaValue) {
-        if (schema.nestingDepth < this.lastNestingDepth) {
+    startArray() {
+        this.stack.startArray()
+    }
+
+    endArray() {
+        if (this.lastIndex && this.schema.get(this.lastIndex).isArray)
+            this.stack.endArray()
+    }
+
+    nesting(schema: SchemaValue, index: number) {
+        if (index !== this.lastIndex) {
             this.stack.exit(this.lastNestingDepth - schema.nestingDepth + 1)
         }
 
         this.enter(schema)
         this.lastNestingDepth = schema.nestingDepth
+        this.lastIndex = index
     }
 }

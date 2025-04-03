@@ -22,7 +22,8 @@ const BIG_INT_MAX = 2 ** 128
 
 export const Value = {
     read(this: Context) {
-        switch (this.read()) {
+        const type = this.read()
+        switch (type) {
             case TypeByte.Bool:
                 return Bool.read.call(this)
             case TypeByte.VarInt32:
@@ -44,6 +45,7 @@ export const Value = {
             case TypeByte.String:
                 return Str.read.call(this)
             default:
+                console.log(type)
                 throw new Error('TODO: Place error here')
         }
     },

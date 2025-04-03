@@ -20,7 +20,7 @@ export const Block = {
 
             if (element[2]) {
                 UVarInt32.write.call(this, index)
-                this.write(0x01)
+                UVarInt32.write.call(this, values.length)
             }
 
             for (let i = values.length - 1; i >= 0; i--) {
@@ -33,7 +33,7 @@ export const Block = {
                         }
                         this.stack.add(val, index)
                     } else {
-                        if (schema.arrayContainValues) {
+                        if (schema.canContainNotObjects) {
                             if (!buf) buf = [val]
                             else buf.push(val)
                         }
@@ -42,17 +42,28 @@ export const Block = {
                 else Value.write.call(this, val)
             }
 
-            if (containValues && !schema.arrayContainValues)
+            if (buf) this.stack.add(buf, index, true)
+
+            if (containValues && !schema.canContainNotObjects)
                 throw new Error('TODO: Make Errors')
+            return
+        } else if (schema.isKeyedObject && !element[3]) {
+            const keys = Object.keys(object)
+
+            for (const key of keys) {
+                this.stack.add(object[key], index, null, key)
+            }
+
             return
         }
 
         UVarInt32.write.call(this, index)
+        if (element[3]) Value.write.call(this, element[3])
 
         const args = schema.args
         const objects = schema.includesObjects
 
-        if (schema.arrayContainValues) this.write(0x00)
+        if (schema.canContainNotObjects) this.write(0x00)
 
         const objectKeys = new Set(Object.keys(object))
 
@@ -113,34 +124,59 @@ export const Block = {
 
         let schema = this.schema.get(index)
 
+        let key: string
+
         if (!schema) return
 
         if (schema.isArray) {
-            if (this.lastNestingDepth !== schema.nestingDepth) {
-                this.nesting(schema)
-                this.stack.startArray()
+            if (this.lastIndex !== index) {
+                this.nesting(schema, index)
+                this.startArray()
             }
-            this.stack.addObjectToArray()
+
+            if (schema.canContainNotObjects && this.peek() !== 0) {
+                const length = UVarInt32.read.call(this)
+
+                for (let i = 0; i < length; i++)
+                    this.stack.addValueToArray(Value.read.call(this))
+
+                return
+            } else {
+                if (schema.canContainNotObjects) this.read()
+                this.stack.addObjectToArray()
+            }
         } else {
-            if (this.stack.isLastArray()) this.stack.endArray()
-            this.nesting(schema)
+            this.endArray()
+            this.nesting(schema, index)
+            if (schema.isKeyedObject) {
+                key = Value.read.call(this)
+                this.stack.addObjectToObject(key)
+            }
         }
 
         let a = 0
         const args = schema.args
 
-        while (a < args.length) {
-            let field = args[a]
+        if (args)
+            while (a < args.length) {
+                let field = args[a]
 
-            if (Empty.check.call(this)) {
-                const count = Empty.read.call(this)
-                a += count
-                continue
+                if (Empty.check.call(this)) {
+                    const count = Empty.read.call(this)
+                    a += count
+                    continue
+                }
+
+                if (key)
+                    this.stack.setValueToObject(
+                        key,
+                        field,
+                        Value.read.call(this)
+                    )
+                else this.stack.setValue(field, Value.read.call(this))
+
+                a++
             }
-
-            this.stack.setValue(field, Value.read.call(this))
-            a++
-        }
     },
 }
 
