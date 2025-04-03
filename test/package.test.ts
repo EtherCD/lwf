@@ -1,4 +1,4 @@
-import * as lwf from '../src'
+import lwf from '../src'
 
 test('Test sizes of serialized data', () => {
     const binaryData = lwf.serialize(object, schema)
@@ -8,9 +8,8 @@ test('Test sizes of serialized data', () => {
     console.log('Size in lwfb: ' + Math.round(binaryData.length / 10.24) / 100)
 })
 
-const schema = {
+const schema = new lwf.Schema({
     x: {
-        root: true,
         key: '',
         isArray: true,
         args: [],
@@ -136,7 +135,6 @@ const schema = {
             'aura',
             'energy',
         ],
-        requiredArgs: [['type', '']],
     },
     i: {
         key: 'players',
@@ -182,7 +180,7 @@ const schema = {
             'color',
         ],
     },
-}
+})
 
 const object = [
     {

@@ -1,5 +1,6 @@
 import ieee754 from 'ieee754'
-import { TypeByte, VarsContext } from './types'
+import { TypeByte } from '../types'
+import { Context } from './context'
 
 const BIG_INT_ZERO = BigInt(0)
 const BIG_INT_ONE = BigInt(1)
@@ -19,10 +20,8 @@ const INT_64_MAX = Number.MAX_SAFE_INTEGER
 
 const BIG_INT_MAX = 2 ** 128
 
-const decoder = new TextDecoder()
-
 export const Value = {
-    read(this: VarsContext) {
+    read(this: Context) {
         switch (this.read()) {
             case TypeByte.Bool:
                 return Bool.read.call(this)
@@ -43,12 +42,12 @@ export const Value = {
             case TypeByte.FloatFE:
                 return FloatFE.read.call(this)
             case TypeByte.String:
-                return String.read.call(this)
+                return Str.read.call(this)
             default:
                 throw new Error('TODO: Place error here')
         }
     },
-    write(this: VarsContext, value: unknown) {
+    write(this: Context, value: unknown) {
         switch (typeof value) {
             case 'boolean':
                 this.write(TypeByte.Bool)
@@ -64,7 +63,7 @@ export const Value = {
                     return
                 }
 
-                if (value > 0) {
+                if (value >= 0) {
                     if (value < UINT_32_MAX) {
                         this.write(TypeByte.UVarInt32)
                         UVarInt32.write.call(this, value)
@@ -97,13 +96,14 @@ export const Value = {
                 return
             case 'string':
                 this.write(TypeByte.String)
-                String.write.call(this, value)
+                Str.write.call(this, value)
                 return
             case 'object':
                 if (value === null) this.write(TypeByte.Null)
                 else throw new Error('TODO: Place error here')
                 return
             default:
+                console.log(value)
                 throw new Error('TODO: Place error here')
         }
     },
@@ -115,10 +115,10 @@ export const Value = {
  * Limitations: signed Int32
  */
 const VarInt32 = {
-    read(this: VarsContext) {
+    read(this: Context) {
         return zigzag.decode(UVarInt32.read.call(this))
     },
-    write(this: VarsContext, value: number) {
+    write(this: Context, value: number) {
         UVarInt32.write.call(this, zigzag.encode(value))
     },
 }
@@ -129,7 +129,7 @@ const VarInt32 = {
  * Limitations: unsigned Int32
  */
 export const UVarInt32 = {
-    read(this: VarsContext) {
+    read(this: Context) {
         let result = 0,
             shift = 0,
             b
@@ -138,11 +138,11 @@ export const UVarInt32 = {
             b = this.buffer[this.offset++]
             result += (b & 0x7f) << shift
             shift += 7
-        } while (b >= 0x7f)
+        } while (b >= 0x80)
 
         return result >>> 0
     },
-    write(this: VarsContext, value: number) {
+    write(this: Context, value: number) {
         this.ensure(INT_32_LENGTH)
 
         while (value > 0x7f) {
@@ -160,10 +160,10 @@ export const UVarInt32 = {
  * Limitations: signed Int64
  */
 const VarInt64 = {
-    read(this: VarsContext) {
+    read(this: Context) {
         return Number(zigzagBN.decode(VarIntBN.read.call(this)))
     },
-    write(this: VarsContext, value: number) {
+    write(this: Context, value: number) {
         VarIntBN.write.call(this, zigzagBN.encode(BigInt(value)))
     },
 }
@@ -173,10 +173,10 @@ const VarInt64 = {
  * Limitations: unsigned Int64
  */
 const UVarInt64 = {
-    read(this: VarsContext) {
+    read(this: Context) {
         return Number(VarIntBN.read.call(this))
     },
-    write(this: VarsContext, value: number) {
+    write(this: Context, value: number) {
         VarIntBN.write.call(this, BigInt(value))
     },
 }
@@ -189,7 +189,7 @@ const UVarInt64 = {
  * Sign stores at start of VarInt.
  */
 const VarIntBN = {
-    read(this: VarsContext) {
+    read(this: Context) {
         let result = BIG_INT_ZERO,
             shift = BIG_INT_ZERO,
             b
@@ -202,7 +202,7 @@ const VarIntBN = {
 
         return result
     },
-    write(this: VarsContext, value: bigint) {
+    write(this: Context, value: bigint) {
         this.ensure(BIG_INT_LENGTH)
 
         while (value > BIG_INT_ENDIAN) {
@@ -219,12 +219,12 @@ const VarIntBN = {
  * Limitations: The total length of numbers must not exceed 17 digits.
  */
 const FloatFE = {
-    read(this: VarsContext) {
+    read(this: Context) {
         const numerator = UVarInt64.read.call(this)
         const denominator = this.buffer[this.offset++]
         return numerator / 10 ** denominator
     },
-    write(this: VarsContext, value: number) {
+    write(this: Context, value: number) {
         const integer = Math.floor(value)
         let fraction = value - integer
 
@@ -257,22 +257,22 @@ const FloatFE = {
  * IEEE754 Encoding
  */
 const FloatIEEE = {
-    read(this: VarsContext) {
+    read(this: Context) {
         const result = ieee754.read(this.buffer, this.offset, false, 54, 8)
         this.offset += 8
         return result
     },
-    write(this: VarsContext, value: number) {
+    write(this: Context, value: number) {
         ieee754.write(this.buffer, value, this.offset, false, 54, 8)
         this.offset += 8
     },
 }
 
 const Bool = {
-    read(this: VarsContext) {
+    read(this: Context) {
         return this.buffer[this.offset++] ? true : false
     },
-    write(this: VarsContext, value: boolean) {
+    write(this: Context, value: boolean) {
         this.buffer[this.offset++] |= value ? 0x01 : 0x00
     },
 }
@@ -280,45 +280,110 @@ const Bool = {
 /**
  * Encodes string
  */
-const String = {
-    read(this: VarsContext) {
+// Realization of fast encoding and decoding for string taken from protobuf.js.
+// https://github.com/protobufjs/protobuf.js/blob/master/lib/utf8/index.js
+const Str = {
+    read(this: Context) {
         let length = UVarInt32.read.call(this)
         if (length <= 0) return ''
 
-        const start = this.offset
-        this.offset += length
-        return decoder.decode(this.buffer.subarray(start, this.offset))
+        const end = this.offset + length
+
+        var str = ''
+        for (; this.offset < end; ) {
+            var t = this.read()
+            if (t <= 0x7f) {
+                str += String.fromCharCode(t)
+            } else if (t >= 0xc0 && t < 0xe0) {
+                str += String.fromCharCode(
+                    ((t & 0x1f) << 6) | (this.read() & 0x3f)
+                )
+            } else if (t >= 0xe0 && t < 0xf0) {
+                str += String.fromCharCode(
+                    ((t & 0xf) << 12) |
+                        ((this.read() & 0x3f) << 6) |
+                        (this.read() & 0x3f)
+                )
+            } else if (t >= 0xf0) {
+                var t2 =
+                    (((t & 7) << 18) |
+                        ((this.read() & 0x3f) << 12) |
+                        ((this.read() & 0x3f) << 6) |
+                        (this.read() & 0x3f)) -
+                    0x10000
+                str += String.fromCharCode(0xd800 + (t2 >> 10))
+                str += String.fromCharCode(0xdc00 + (t2 & 0x3ff))
+            }
+        }
+
+        return str
     },
-    write(this: VarsContext, value: string) {
+    write(this: Context, value: string) {
         if (value.length === 0) {
             this.ensure(1)
             this.buffer[this.offset++] = 0x00
             return
         }
-        if (value.length === 1) {
-            this.ensure(2)
-            this.buffer[this.offset++] = 1
-            this.buffer[this.offset++] = value.charCodeAt(0)
-            return
+
+        const len = Str._len(value)
+
+        UVarInt32.write.call(this, len)
+        this.ensure(len)
+
+        var c1, // character 1
+            c2 // character 2
+        for (var i = 0; i < value.length; ++i) {
+            c1 = value.charCodeAt(i)
+            if (c1 < 128) {
+                this.write(c1)
+            } else if (c1 < 2048) {
+                this.write((c1 >> 6) | 192)
+                this.write((c1 & 63) | 128)
+            } else if (
+                (c1 & 0xfc00) === 0xd800 &&
+                ((c2 = value.charCodeAt(i + 1)) & 0xfc00) === 0xdc00
+            ) {
+                c1 = 0x10000 + ((c1 & 0x03ff) << 10) + (c2 & 0x03ff)
+                ++i
+                this.write((c1 >> 18) | 240)
+                this.write(((c1 >> 12) & 63) | 128)
+                this.write(((c1 >> 6) & 63) | 128)
+                this.write((c1 & 63) | 128)
+            } else {
+                this.write((c1 >> 12) | 224)
+                this.write(((c1 >> 6) & 63) | 128)
+                this.write((c1 & 63) | 128)
+            }
         }
-
-        UVarInt32.write.call(this, value.length)
-        this.ensure(value.length)
-
-        for (let i = 0; i < value.length; i++)
-            this.buffer[this.offset++] = value.charCodeAt(i)
+    },
+    _len(string: string) {
+        var len = 0,
+            c = 0
+        for (var i = 0; i < string.length; ++i) {
+            c = string.charCodeAt(i)
+            if (c < 128) len += 1
+            else if (c < 2048) len += 2
+            else if (
+                (c & 0xfc00) === 0xd800 &&
+                (string.charCodeAt(i + 1) & 0xfc00) === 0xdc00
+            ) {
+                ++i
+                len += 4
+            } else len += 3
+        }
+        return len
     },
 }
 
 export const Empty = {
-    write(this: VarsContext, count: number) {
+    write(this: Context, count: number) {
         if (count === 1) this.write(TypeByte.Empty)
         else {
             this.write(TypeByte.EmptyCount)
             UVarInt32.write.call(this, count)
         }
     },
-    read(this: VarsContext) {
+    read(this: Context) {
         const header = this.read()
         switch (header) {
             case TypeByte.Empty:
@@ -329,7 +394,7 @@ export const Empty = {
                 throw new Error('TODO: ADD ERROROROROR')
         }
     },
-    check(this: VarsContext) {
+    check(this: Context) {
         const header = this.buffer[this.offset]
         return header === TypeByte.Empty || header === TypeByte.EmptyCount
     },

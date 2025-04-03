@@ -1,27 +1,32 @@
-import { serialize } from '../src'
-import { deserialize } from '../src/deserialize'
+import { deepStrictEqual } from 'assert'
+import lwf from '../src'
+import { Schema } from '../src/internal/schema'
+import fs from 'fs'
+
+const pixels: { x: number; y: number; color: string }[] = []
+for (let x = 0; x < 255; x++)
+    for (let y = 0; y < 255; y++) pixels.push({ x, y, color: '#000000' })
+
+const obj = {
+    width: 255,
+    height: 255,
+    pixels,
+}
 
 test('Deser tests', () => {
-    const schema = {
+    const schema = new Schema({
         a: {
-            args: ['name', 'age', 'status', 'developer'],
+            args: ['width', 'height'],
             includes: ['b'],
         },
         b: {
-            key: 'badges',
+            args: ['x', 'y', 'color'],
             isArray: true,
-            arrayContainValues: true,
-            args: ['Summer', 'Autumn', 'Winter', 'Spring'],
+            key: 'pixels',
         },
-    }
-    const buffer = serialize(
-        {
-            developer: true,
-            name: 'EtherCD',
-            status: 'Jr. Dev',
-            age: -4594359435945,
-        },
-        schema
-    )
-    deserialize(buffer, schema)
+    })
+
+    const buffer = lwf.serialize(obj, schema)
+
+    deepStrictEqual(lwf.deserialize(buffer, schema), obj)
 })

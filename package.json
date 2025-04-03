@@ -17,7 +17,7 @@
     "types": "dist/index.d.ts",
     "scripts": {
         "build": "tsup src/index.ts --format esm,cjs --dts",
-        "test": "jest --useStderr --verbose=true"
+        "test": "jest"
     },
     "dependencies": {
         "ieee754": "^1.2.1"

@@ -1,7 +1,8 @@
-import { serialize } from '../src'
+import lwf from '../src'
+import { Schema } from '../src/internal/schema'
 
 test('Lol', () => {
-    const schema = {
+    const schema = new Schema({
         a: {
             args: ['name', 'age', 'status', 'developer'],
             includes: ['b'],
@@ -12,8 +13,8 @@ test('Lol', () => {
             arrayContainValues: true,
             args: ['Summer', 'Autumn', 'Winter', 'Spring'],
         },
-    }
-    const buffer = serialize(
+    })
+    const buffer = lwf.serialize(
         {
             developer: true,
             name: 'EtherCD',

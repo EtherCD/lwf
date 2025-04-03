@@ -1,8 +1,64 @@
-import * as lwf from '../src'
-import { Schema } from '../src/types'
+import lwf from '../src'
+import fs from 'fs'
+import { Schema } from '../src/internal/schema'
 
 test('View example in bytes', () => {
+    // const object = JSON.parse(fs.readFileSync('world.json') + '')
+    const object = {
+        data: {
+            name: 'Catastrophic Collapse',
+            colors: {
+                leaderBoard: 'rgba(145,152,255,255)',
+                fill: 'rgba(145,152,255,255)',
+                stroke: 'rgba(145,152,0,255)',
+                chat: 'rgba(145,152,255,255)',
+            },
+        },
+        areas: [
+            {
+                properties: { x: 0, y: 0 },
+                zones: [
+                    {
+                        type: 'teleport',
+                        x: 0,
+                        y: 0,
+                        w: 320,
+                        h: 64,
+                        translate: { x: 0, y: -11200 },
+                        spawners: [
+                            {
+                                amount: 40,
+                                radius: 0,
+                                speed: 'speed',
+                                types: ['accelerator', 'aasdasd'],
+                            },
+                        ],
+                    },
+                    {
+                        type: 'teleport',
+                        x: 0,
+                        y: 0,
+                        w: 320,
+                        h: 64,
+                        translate: { x: 0, y: -11200 },
+                        spawners: [
+                            {
+                                amount: 40,
+                                radius: 0,
+                                speed: 'speed',
+                                types: ['accelerator', 'aasdasd'],
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    }
+
     const data = lwf.serialize(object, schema)
+    fs.writeFileSync('world.lwfb', data)
+
+    lwf.deserialize(data, schema)
 
     let string = ''
     for (const e of data) {
@@ -12,7 +68,7 @@ test('View example in bytes', () => {
     console.log(string)
 })
 
-const schema: Schema = {
+const schema = new lwf.Schema({
     g: {
         args: [],
         includes: ['d', 'a'],
@@ -23,13 +79,13 @@ const schema: Schema = {
         includes: ['c'],
     },
     c: {
-        key: 'color',
-        args: ['fill'],
+        key: 'colors',
+        args: ['leaderBoard', 'fill', 'stroke', 'chat'],
     },
     a: {
         key: 'areas',
         isArray: true,
-        includes: ['p'],
+        includes: ['p', 'z'],
     },
     p: {
         key: 'properties',
@@ -40,8 +96,24 @@ const schema: Schema = {
         key: 'zones',
         isArray: true,
         args: ['type', 'x', 'y', 'w', 'h'],
+        includes: ['s', 'l'],
     },
-}
+    l: {
+        key: 'translate',
+        args: ['x', 'y'],
+    },
+    s: {
+        key: 'spawners',
+        isArray: true,
+        args: ['speed', 'radius', 'amount'],
+        includes: ['t'],
+    },
+    t: {
+        key: 'types',
+        isArray: true,
+        arrayContainValues: true,
+    },
+})
 
 const object = {
     data: {

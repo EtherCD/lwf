@@ -1,4 +1,4 @@
-import * as lwf from '../src'
+import lwf from '../src'
 
 test('Test sizes of serialized data', () => {
     const table = [{ LWFB: 0, JSON: 0 }]
@@ -16,7 +16,7 @@ test('Test sizes of serialized data', () => {
     console.log('Size in lwfb: ' + Math.round(binaryData.length / 10.24) / 100)
 })
 
-const schema = {
+const schema = new lwf.Schema({
     a: {
         args: [],
         includes: ['p'],
@@ -26,12 +26,12 @@ const schema = {
         args: ['x', 'y', 'color'],
         isArray: true,
     },
-}
+})
 
 const widthHeight = 200
 
 const object: {
-    pixels: Array<{ x: number; y: number; color: string }>
+    pixels: Array<{ x: number; y: number }>
 } = { pixels: [] }
 
 for (let y = 0; y < widthHeight; y++) {
@@ -39,7 +39,6 @@ for (let y = 0; y < widthHeight; y++) {
         object.pixels.push({
             x,
             y,
-            color: '#000000',
         })
     }
 }

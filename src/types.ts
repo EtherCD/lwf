@@ -1,12 +1,9 @@
 export type HexNumber = number
 
-export type RawSchema = Record<string, StaticTypedSchema>
-export type Schema = Record<string, ProcessedSchemaValue>
+export type RawSchema = Record<string, RawSchemaValue>
+export type ProcessedSchema = SchemaValue[]
 
-export type SingleSchema = ProcessedSchemaValue
-export type RawSingleSchema = StaticTypedSchema
-
-export type StaticTypedSchema = {
+export type RawSchemaValue = {
     /**
      * Specifies which fields will be converted and their sequence when writing.
      *
@@ -17,10 +14,6 @@ export type StaticTypedSchema = {
      * Specifies the key by which the object will be written to the top object of the structure
      */
     key?: GenericSchemaValues
-    /**
-     * Can write data more efficient with static typed values.
-     */
-    types?: (typeof TypeSchema)[keyof typeof TypeSchema][]
     /**
      * Indicates which schemas are nested inside
      */
@@ -39,7 +32,7 @@ export type StaticTypedSchema = {
     isKeyedObject?: boolean
 }
 
-export type ProcessedSchemaValue = StaticTypedSchema & {
+export type SchemaValue = RawSchemaValue & {
     /**
      * Indicates which schemas are nested inside
      */
@@ -48,9 +41,13 @@ export type ProcessedSchemaValue = StaticTypedSchema & {
      * Indicates which schemas are nested inside
      */
     includesObjects?: string[]
+    /**
+     *
+     */
+    nestingDepth?: number
 }
 
-export type GenericSchemaValues = number | string
+export type GenericSchemaValues = string
 
 /**
  * Types of values.
@@ -70,32 +67,30 @@ export enum TypeByte {
     EmptyCount = 0x0b,
 }
 
-export const TypeSchema = {
-    Any: 'any',
-    Int: 'int',
-    Bool: 'bool',
-    Char: 'char',
-    String: 'str',
-}
+/**
+ * obj, overrideIndex, isArrayWithOnlyValues
+ */
+export type WriteStackValue = [Object, number?, boolean?]
 
-export type ByteDepth = 8 | 16 | 32 | 64
+export type ReadStackValue = [Object]
 
-export type VarsContext = {
-    buffer: Uint8Array
-    offset: number
+// export type VarsContext = {
+//     buffer: Uint8Array
+//     offset: number
 
-    ensure: (elements: number) => void
-    write: (byte: number) => void
-    read: () => number
+//     ensure: (elements: number) => void
+//     write: (byte: number) => void
+//     read: () => number
 
-    schema: SingleSchema[]
-}
+//     schema: SingleSchema[]
+// }
 
-export type WriteBlockContext = VarsContext & {
-    sOffset: number
-    nested: [object, number?][]
-}
+// export type WriteBlockContext = VarsContext & {
+//     sOffset: number
+//     nested: [object, number?][]
+//     index: number
+// }
 
-export type ReadBlockContext = VarsContext & {
-    readBuffer: Map<number, Object>
-}
+// export type ReadBlockContext = VarsContext & {
+//     readBuffer: Map<number, Object>
+// }
