@@ -1,9 +1,8 @@
-import { Block } from './internal/blocks'
-import { ReadContext } from './internal/context'
-import { Schema } from './internal/schema'
+import { Block } from "./internal/blocks"
+import { ReadContext } from "./internal/context"
+import { Schema } from "./internal/schema"
 
 export function deserialize(buffer: Uint8Array, schema: Schema) {
-    // options = processOptions(options)
     const context = new ReadContext(buffer, schema)
 
     while (context.offset < context.buffer.length) {

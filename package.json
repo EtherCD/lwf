@@ -1,8 +1,8 @@
 {
     "name": "lwf",
     "description": "Lightweight Format - a format for storing data by writing sequential blocks of data, without using any designations",
-    "license": "MIT",
-    "version": "1.4.0",
+    "license": "BSD-3-Clause",
+    "version": "2.0.0",
     "repository": {
         "type": "git",
         "url": "https://github.com/EtherCD/lwf"

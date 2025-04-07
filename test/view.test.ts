@@ -1,25 +1,23 @@
-import lwf from '../src'
-import fs from 'fs'
-import { Schema } from '../src/internal/schema'
+import { deepStrictEqual } from "assert"
+import lwf from "../src"
 
-test('View example in bytes', () => {
-    // const object = JSON.parse(fs.readFileSync('world.json') + '')
+test("View example in bytes", () => {
     const object = {
         data: {
-            name: 'Catastrophic Collapse',
+            name: "Catastrophic Collapse",
             colors: {
-                leaderBoard: 'rgba(145,152,255,255)',
-                fill: 'rgba(145,152,255,255)',
-                stroke: 'rgba(145,152,0,255)',
-                chat: 'rgba(145,152,255,255)',
-            },
+                leaderBoard: "rgba(145,152,255,255)",
+                fill: "rgba(145,152,255,255)",
+                stroke: "rgba(145,152,0,255)",
+                chat: "rgba(145,152,255,255)"
+            }
         },
         areas: [
             {
                 properties: { x: 0, y: 0 },
                 zones: [
                     {
-                        type: 'teleport',
+                        type: "teleport",
                         x: 0,
                         y: 0,
                         w: 320,
@@ -29,13 +27,13 @@ test('View example in bytes', () => {
                             {
                                 amount: 40,
                                 radius: 0,
-                                speed: 'speed',
-                                types: ['accelerator', 'aasdasd'],
-                            },
-                        ],
+                                speed: "speed",
+                                types: ["accelerator", "aasdasd"]
+                            }
+                        ]
                     },
                     {
-                        type: 'teleport',
+                        type: "teleport",
                         x: 0,
                         y: 0,
                         w: 320,
@@ -45,97 +43,75 @@ test('View example in bytes', () => {
                             {
                                 amount: 40,
                                 radius: 0,
-                                speed: 'speed',
-                                types: ['accelerator', 'aasdasd'],
-                            },
-                        ],
-                    },
-                ],
-            },
-        ],
+                                speed: "speed",
+                                types: ["accelerator", "aasdasd"]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
     }
 
     const data = lwf.serialize(object, schema)
-    fs.writeFileSync('world.lwfb', data)
 
-    lwf.deserialize(data, schema)
+    const out = lwf.deserialize(data, schema)
 
-    let string = ''
-    for (const e of data) {
-        let r = decToHex(e)
-        string += `0x${r.length === 1 ? '0' : ''}${r} `
-    }
-    console.log(string)
+    deepStrictEqual(out, object)
+
+    // let string = ''
+    // for (const e of data) {
+    //     let r = decToHex(e)
+    //     string += `0x${r.length === 1 ? '0' : ''}${r} `
+    // }
+    // console.log(string)
 })
 
 const schema = new lwf.Schema({
     g: {
-        args: [],
-        includes: ['d', 'a'],
+        nested: ["d", "a"]
     },
     d: {
-        key: 'data',
-        args: ['name'],
-        includes: ['c'],
+        key: "data",
+        fields: ["name"],
+        nested: ["c"]
     },
     c: {
-        key: 'colors',
-        args: ['leaderBoard', 'fill', 'stroke', 'chat'],
+        key: "colors",
+        fields: ["leaderBoard", "fill", "stroke", "chat"]
     },
     a: {
-        key: 'areas',
+        key: "areas",
         isArray: true,
-        includes: ['p', 'z'],
+        nested: ["p", "z"]
     },
     p: {
-        key: 'properties',
-        args: ['x', 'y', 'w', 'h'],
-        includes: ['z'],
+        key: "properties",
+        fields: ["x", "y", "w", "h"]
     },
     z: {
-        key: 'zones',
+        key: "zones",
         isArray: true,
-        args: ['type', 'x', 'y', 'w', 'h'],
-        includes: ['s', 'l'],
+        fields: ["type", "x", "y", "w", "h"],
+        nested: ["s", "l"]
     },
     l: {
-        key: 'translate',
-        args: ['x', 'y'],
+        key: "translate",
+        fields: ["x", "y"]
     },
     s: {
-        key: 'spawners',
+        key: "spawners",
         isArray: true,
-        args: ['speed', 'radius', 'amount'],
-        includes: ['t'],
+        fields: ["speed", "radius", "amount"],
+        nested: ["t"]
     },
     t: {
-        key: 'types',
-        isArray: true,
-        canContainNotObjects: true,
-    },
+        key: "types",
+        isArray: true
+    }
 })
 
-const object = {
-    data: {
-        name: 'Test Map',
-        color: {
-            fill: '#ffffff',
-        },
-    },
-    areas: [
-        {
-            properties: {
-                x: 0.0005,
-                y: 0.0005,
-                w: 0.0005,
-                h: 0.0005,
-            },
-            zones: [{ type: 'teleport', x: 0, y: 0, w: 320, h: 64 }],
-        },
-    ],
-}
-
-var hexchar = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'A', 'B', 'C', 'D', 'E', 'F'].map(
+var hexchar = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, "A", "B", "C", "D", "E", "F"].map(
     (v) => v.toString()
 )
 function decToHex(num) {

@@ -1,83 +1,125 @@
-import { SchemaValue, WriteStackValue } from '../types'
-import { ReadContext, WriteContext } from './context'
-import { Empty, UVarInt32, Value } from './vars'
+import { SerializationError } from "../errors"
+import { SchemaValue, WriteStackValue } from "../types"
+import { ReadContext, WriteContext } from "./context"
+import { Empty, UVarInt32, Value } from "./vars"
 
 export const Block = {
     write(this: WriteContext, element: WriteStackValue) {
         const index = element[1] !== null ? element[1] : 0
-        const schema = this.schema.get(index)
-        let object = element[0]
+        const schema = this.schema.getSchema(index)
+
+        const object = element[0]
+        const isJustValues = element[2] ?? false
+        const containLength = schema.isArray || schema.isMap
+        const key = element[3]
 
         if (Array.isArray(object)) {
             let values: Array<unknown> = object as Array<unknown>
 
-            if (!schema.isArray) throw new Error('TODO: Make Errors')
-
-            let containValues = false
-            let buf: Array<unknown> | undefined
+            if (!schema.isArray)
+                throw new SerializationError(
+                    "Unexpected handling of an object or value instead of an array, key " +
+                        schema.key
+                )
 
             if (values.length === 0) return
 
-            if (element[2]) {
+            // If the current list consists only of simple values, we write
+            if (isJustValues) {
                 UVarInt32.write.call(this, index)
                 UVarInt32.write.call(this, values.length)
+                for (let i = values.length - 1; i >= 0; i--)
+                    Value.write.call(this, values[i])
+                return
             }
 
+            let buf: Array<unknown> | undefined
+
+            // We go through the elements of the array
+            // If we find a simple value, we automatically add it to the buffer,
+            // and next time we add it to the stack.
             for (let i = values.length - 1; i >= 0; i--) {
                 const val = object[i]
-                if (!element[2])
-                    if (typeof val === 'object' && val !== null) {
+                if (!isJustValues)
+                    if (typeof val === "object" && val !== null) {
                         if (buf) {
                             this.stack.add(buf, index, true)
                             buf = undefined
                         }
                         this.stack.add(val, index)
                     } else {
-                        if (schema.canContainNotObjects) {
-                            if (!buf) buf = [val]
-                            else buf.push(val)
-                        }
-                        containValues = true
+                        if (!buf) buf = [val]
+                        else buf.push(val)
                     }
                 else Value.write.call(this, val)
             }
 
             if (buf) this.stack.add(buf, index, true)
 
-            if (containValues && !schema.canContainNotObjects)
-                throw new Error('TODO: Make Errors')
             return
-        } else if (schema.isKeyedObject && !element[3]) {
+        } else if (schema.isMap && !element[3]) {
             const keys = Object.keys(object)
 
-            for (const key of keys) {
-                this.stack.add(object[key], index, null, key)
+            if (isJustValues) {
+                UVarInt32.write.call(this, index)
+                UVarInt32.write.call(this, keys.length)
+                for (let i = keys.length - 1; i >= 0; i--) {
+                    const key = keys[i]
+                    Value.write.call(this, key)
+                    Value.write.call(this, object[key])
+                }
+                return
+            }
+
+            let buf: Record<string, unknown> | undefined
+            for (let i = keys.length - 1; i >= 0; i--) {
+                const key = keys[i]
+                const value = object[key]
+                if (typeof value === "object" && value !== null) {
+                    if (buf) {
+                        this.stack.add(buf, index, true)
+                        buf = undefined
+                    }
+                    this.stack.add(value, index, null, key)
+                } else {
+                    if (!buf) buf = {}
+                    buf[key] = value
+                }
+            }
+
+            if (buf) {
+                this.stack.add(buf, index, true)
+                buf = undefined
             }
 
             return
         }
 
         UVarInt32.write.call(this, index)
-        if (element[3]) Value.write.call(this, element[3])
 
-        const args = schema.args
-        const objects = schema.includesObjects
-
-        if (schema.canContainNotObjects) this.write(0x00)
+        const fields = schema.fields
+        const objects = schema.nestedK
 
         const objectKeys = new Set(Object.keys(object))
 
+        if (containLength)
+            if (isJustValues) {
+                UVarInt32.write.call(this, objectKeys.size)
+            } else this.write(0)
+        if (key) Value.write.call(this, key)
+
         let a = 0
-        if (args)
-            while (a < args.length) {
-                let field = args[a]
+
+        if (fields)
+            while (a < fields.length) {
+                let field = fields[a]
 
                 if (objectKeys.has(field as string)) {
                     const value = object[field]
 
-                    if (typeof value === 'object' && value !== null) {
-                        throw new Error(
-                            'Error, unexpected use of object in list `args` schema'
+                    if (typeof value === "object" && value !== null) {
+                        throw new SerializationError(
+                            "Unexpected use of object in list `fields` schema"
                         )
                     } else Value.write.call(this, value)
 
@@ -87,8 +129,8 @@ export const Block = {
 
                 let count = 1
                 while (
-                    a + count < args.length &&
-                    !objectKeys.has(args[a + count] as string)
+                    a + count < fields.length &&
+                    !objectKeys.has(fields[a + count] as string)
                 ) {
                     count++
                 }
@@ -108,11 +150,11 @@ export const Block = {
             if (objectKeys.has(field)) {
                 const value = object[field]
 
-                if (typeof value === 'object' && value !== null) {
-                    this.stack.add(value, schema.includesIndexes[a])
+                if (typeof value === "object" && value !== null) {
+                    this.stack.add(value, schema.nestedI[a])
                 } else
-                    throw new Error(
-                        'Error, unexpected use of non-Object value in `includes` schema'
+                    throw new SerializationError(
+                        "Unexpected use of non-Object value in `nested` schema"
                     )
             }
 
@@ -122,44 +164,86 @@ export const Block = {
     read(this: ReadContext) {
         const index = UVarInt32.read.call(this) as number
 
-        let schema = this.schema.get(index)
+        let schema = this.schema.getSchema(index)
 
-        let key: string
+        const isArray = schema.isArray
+        const isMap = schema.isMap
+        const justValues = this.peek() === 0 ? false : true
 
         if (!schema) return
 
-        if (schema.isArray) {
-            if (this.lastIndex !== index) {
-                this.nesting(schema, index)
-                this.startArray()
+        // Exits from other not objects (arrays and maps)
+        if (this.lastSchema)
+            if (
+                index !== this.lastIndex &&
+                this.lastSchema.nestedI &&
+                this.lastSchema.nestedI.includes(index)
+            ) {
+            } else {
+                if (
+                    (this.lastSchema.isArray || this.lastSchema.isMap) &&
+                    !this.stack.isEqualsIndexes(index)
+                )
+                    this.stack.exitNotObject()
+
+                this.stack.exit(
+                    Math.abs(
+                        schema.nestingDepth - this.lastSchema.nestingDepth
+                    ) + 1
+                )
             }
 
-            if (schema.canContainNotObjects && this.peek() !== 0) {
+        if (isArray) {
+            // If this is a new array, let's create it
+            if (!this.stack.isArray || this.stack.currentKey !== schema.key) {
+                if (index !== 0) {
+                    this.stack.enterArray(index, schema.key)
+                }
+            }
+            //  If it contains only values, we read their length and write them to the array
+            if (justValues) {
                 const length = UVarInt32.read.call(this)
 
                 for (let i = 0; i < length; i++)
-                    this.stack.addValueToArray(Value.read.call(this))
+                    this.stack.pushValue(Value.read.call(this))
 
+                const nextIndex = UVarInt32.peek.call(this)
+                const nextSchema = this.schema.getSchema(nextIndex)
+                this.stack.exit(schema.nestingDepth - nextSchema.nestingDepth)
+
+                this.lastIndex = index
                 return
             } else {
-                if (schema.canContainNotObjects) this.read()
-                this.stack.addObjectToArray()
+                this.read() // Reads byte with 0
+                this.stack.enterObject()
+            }
+        } else if (isMap) {
+            if (!this.stack.isEqualsIndexes(index))
+                this.stack.enterMap(index, schema.key)
+            if (this.peek() !== 0) {
+                const length = UVarInt32.read.call(this)
+
+                for (let i = 0; i < length; i++)
+                    this.stack.setField(
+                        Value.read.call(this),
+                        Value.read.call(this)
+                    )
+                return
+            } else {
+                this.read()
+                const key = Value.read.call(this)
+                this.stack.enterObject(key)
             }
         } else {
-            this.endArray()
-            this.nesting(schema, index)
-            if (schema.isKeyedObject) {
-                key = Value.read.call(this)
-                this.stack.addObjectToObject(key)
-            }
+            this.stack.enterObject(schema.key)
         }
 
         let a = 0
-        const args = schema.args
+        const fields = schema.fields
 
-        if (args)
-            while (a < args.length) {
-                let field = args[a]
+        if (fields)
+            while (a < fields.length) {
+                let field = fields[a]
 
                 if (Empty.check.call(this)) {
                     const count = Empty.read.call(this)
@@ -167,17 +251,14 @@ export const Block = {
                     continue
                 }
 
-                if (key)
-                    this.stack.setValueToObject(
-                        key,
-                        field,
-                        Value.read.call(this)
-                    )
-                else this.stack.setValue(field, Value.read.call(this))
+                this.stack.setField(field, Value.read.call(this))
 
                 a++
             }
-    },
+
+        this.lastIndex = index
+        this.lastSchema = schema
+    }
 }
 
 /**

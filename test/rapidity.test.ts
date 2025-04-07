@@ -25,25 +25,29 @@ test("Test sizes of serialized data", () => {
 
 const schema = new lwf.Schema({
     a: {
-        fields: ["x", "y", "color"],
-        isArray: true
+        fields: ["a", "b"],
+        isArray: true,
+        nested: ["b"]
+    },
+    b: {
+        key: "c",
+        fields: ["str", "large"]
     }
 })
 
-const count = 200
+const count = 200 ** 2
 
 const object: Array<{
-    x: number
-    y: number
-    color: string
+    a: number
+    c: { str: string; large: string }
 }> = []
 
 for (let x = 0; x < count; x++) {
-    for (let y = 0; y < count; y++) {
-        object.push({
-            x,
-            y,
-            color: "#ffffff"
-        })
-    }
+    object.push({
+        a: Math.pow(2, 53) - 1,
+        c: {
+            str: "TEST123",
+            large: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas sodales dolor quis nisi tincidunt, id gravida neque ornare. Donec sodales tempus metus, et iaculis libero interdum eu. Suspendisse ac neque quis lectus porttitor gravida sit amet blandit neque. Nunc iaculis mollis ex, nec gravida nunc imperdiet et. Praesent non pretium. "
+        }
+    })
 }

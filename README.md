@@ -1,177 +1,96 @@
 <div align="center">
-  <img src="docs/icon.svg" height="108" alt="LWF">
-  <p>Lightweight Format - A binary format for storing data by writing sequential blocks of data, without using any designations</p>
+  <img src="docs/logotype.svg" height="108" alt="LWF">
+  <p>A very compact, compression friendly, binary format for storing JSON like objects.</p>
   </hr>
 
-  <img src="https://img.shields.io/npm/last-update/lwf"/>
-  <img src="https://img.shields.io/github/languages/code-size/EtherCD/lwf?">
-  <img src="https://img.shields.io/npm/v/lwf">
+  <img src="https://img.shields.io/npm/last-update/lwf?style=flat-square"/>
+  <img src="https://img.shields.io/bundlephobia/min/lwf?style=flat-square&color=%2300cc99">
+  <img src="https://img.shields.io/npm/v/lwf?style=flat-square">
 
 <hr/>
 <p>Guide to Using This Format</p>
-L[🇬🇧,<a href="./docs/Basics-en.md">English</a>]
-L[🇷🇺,<a href="./docs/Basics-ru.md">Russian</a>]
-L[🇲🇨,<a href="./docs/Basics-id.md">Indonesian</a>]
+<a href="./docs/Usage.md">[🇬🇧,English]</a>
 <hr/>
 
 </div>
 
-> ![IMPORTANT]
-> Currently binary variant in dev :3
+> [!IMPORTANT]
+> The format stores data according to the scheme, see the guide
+> There are also some limitations
 
-## What is this and why?
+# About
 
-This is a binary data storage format with a structure similar to JavaScript Object or Array. But its distinctive feature is its compactness writing data.
+This format uses a scheme for writing and reading data. The main goal of the format is compactness and compression friendliness. Therefore, to make the record even more compact, the scheme stores the names of the fields by which the data is stored. And the data itself in its pure form is stored in binary form.
 
-The main idea on which the format is based is that common formats like (JSON, YAML, TOML...) store data with their markup. Their markup describes how the data is nested, which fields contain which data. But for data that is repeated constantly, or partially, you can come up with a simpler option for storing data.
+This is the principle of data storage. More details can be found in the [specification](./docs/Specification.md)
 
-This is how this format was invented, the idea is that only the field values ​​will be written into blocks, in a certain sequence. And the serialization result itself will not contain their markup.
+## Compactness and compression
 
-The data markup is taken out into a schema that you will need to write to work with this format.
+The test data package is located here [test/index.test.ts](./test/index.test.ts). When stored as json, it takes up 21.22 KB. When stored in lwfb, it takes up only 8.99 KB.
 
-The format was created mainly to compact packets before sending, as well as for the most compact storage of data.
+An object with an array of 200^2 objects that is in [test/pixels.test.ts](./test/pixels.test.ts). When converted to json it is 1363.29Kb in size, in lwfb 614.06Kb.
 
-## How much more compact?
-
-The test data package is located here [test/index.test.ts](./test/index.test). When stored as json, it takes up 21.23 KB. When stored in lwfb, it takes up only 6.52 KB.
-
-An object with an array of 200^2 objects that is in [test/pixels.test.ts](./test/pixels.test). When converted to json it is 1123.93Kb in size, in lwfb 575Kb.
-
-If the data contains more numbers, then the binary nature of lwf will allow it to be compressed into just 1,2,4,8 bytes, depending on the bit depth.
-
-Also, static typing will allow more compact storage of data, but it removes only 1 byte describing the data type. Also, a type check is implemented, but typing is currently available only for one of the types.
-
+The format focuses on ensuring that even if data markup is needed, it should be in a repeating format, allowing compression to work more efficiently.
 For example how to write schemas
 
+### Usage example
+
+For a more precise understanding of how to use, again, look at the [guide](./docs/Basics-en.md)
+
 ```ts
-const object = {
-  data: {
-    name: "Test Map",
-    color: {
-      fill: "#ffffff"
+import lwf from "lwf"
+
+const schema = new lwf.Schema{
+    a: {
+      isArray:true,
+      fields: ["message", "length", "verified", "name", "grammarCheck"]
     }
-  },
-  areas: [
-    {
-      properties: {
-        x: 0,
-        y: 0,
-        w: 0,
-        h: 0,
-      },
-      zones: [
-        {type: "teleport", x: 0, y: 0, w: 320, h: 64}
-      ]
-    }
-  ]
 }
 
-const schema = {
-  // Root object
-  a: {
-    // Describes included schemas for parsing objects
-    // Format can't process objects without schema
-    includes: ["a", "d"]
-  },
-  d: {
-    // Field at parent object where object will write.
-    key: "data",
-    // Describes fields names inside object.
-    args: ["name"],
-    includes: ["c"]
-  },
-  c: ...
-  a: {
-    // Object inside array will be processed according to this scheme
-    isArray: true,
-    key: "areas",
-    includes: ["z"]
-  },
-  z: {
-    isArray: true,
-    key: "zones",
-    args: ["type", "x","y","w","h"],
-    // If we knows what types of fields in object, we can describe it
-    types: ["str", "int", "int", "int", "int"]
+const object = [
+  {
+    message: "Hello World!!!",
+    length: 1000,
+    verified: true,
+    grammarCheck: false
+  }
+]
+
+// Returns UInt8Array
+const buffer = lwf.serialize(object, schema)
+// Returns object or array
+const array = lwf.deserialize(result, schema)
+```
+
+## Performance
+
+On the Xeon E3-1230 v2 processor, these are the numbers you get, compared to JSON
+
+Objects to check - array below, repeated 200^2 times
+
+```json
+{
+  "a": 2 ** 53 - 1,
+  c: {
+    str: "TEST123",
+    large: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas sodales dolor quis nisi tincidunt, id gravida neque ornare. Donec sodales tempus metus, et iaculis libero interdum eu. Suspendisse ac neque quis lectus porttitor gravida sit amet blandit neque. Nunc iaculis mollis ex, nec gravida nunc imperdiet et. Praesent non pretium. "
   }
 }
 ```
 
-The format is also great for compression, here is an example sizes gets from compression with lz4:
+| Process     | Format | Time (ms) | Size     |
+| ----------- | ------ | --------- | -------- |
+| serialize   | LWF    | 405       | 14140.63 |
+| stringify   | JSON   | 65        | 15351.56 |
+| deserialize | LWF    | 4552      | x        |
+| parse       | JSON   | 58        | x        |
 
-```
-4.6 KB package.json.lz4
-4.1 KB package.lwf.lz4
-2.6 KB package.lwfb.lz4
- 21 KB package.json
-9.9 KB package.lwf
-6.5 KB package.lwfb
-```
-
-## How it contains data?
-
-Specs for format is not finished yet. But half of my ideas wrote in [this file](./specs.md)
-
-### Schema
-
-For correct work with data, and correct conversion to a string and return from. You need to write a diagram that describes the data structure
-
-To correctly write a schema, you will need to fully understand what data may be in the object.
-
-A simple example of using the schema:
-
-```ts
-const schema: Schema = {
-    a: {
-        // Sequentially written data keys that will be listed in the list of values ​​of this data
-        args: ['message', 'length', 'verified', 'name', 'grammarCheck'],
-    },
-}
-
-const object = {
-    message: 'Hello World!!!',
-    length: 1000,
-    verified: true,
-    grammarCheck: false,
-}
-
-const result = lwf.serialize(object, schema) // Returns UInt8Array, with compact stored data.
-lwf.deserialize(result, schema) // Should return an object identical to the input
-```
-
-## Deprecated format?
-
-For compatibility the previous implementation was left here, it is slower. Although it can be useful if data readability is important.
-
-## Performance
-
-The new binary implementation of the format works faster than its predecessor.
-Let's look at the numbers for [test/pixels.test.ts](./test/pixels.test) with 200^2 length array.
-
-CPU: i5-3330
-
-```
-┌─────────┬──────┬─────┬──────┐
-│ (index) │ LWFB │ LWF │ JSON │
-├─────────┼──────┼─────┼──────┤
-│ 0       │ 59   │ 178 │ 11   │
-└─────────┴──────┴─────┴──────┘
-```
-
-Binary realization is more efficient, but why? The serialization code is optimized to the point of horror. Use UInt8Array instead of dynamic array, non-recursive implementation, use of extra arrays is minimized.
-
-## Future?
-
-I expect to bring the format to a more universal form. Add the ability to create these schemes automatically, and maybe even write them to files. But since schemes take up almost as much space as simple descriptions in JSON, the difference in size will be minimal. Of course, until an object starts using 2 or more such objects. There are also problems with the design of the format, which is aimed at optimizing size and speed.
+Parsing is not the fastest process at the moment. The approach to parsing will be changed soon.
 
 ## Special
 
 Thanks to
 [@mirdukkkkk](https://github.com/mirdukkkkk) for fixing and writing more technical competently guide ❤️
-
-## TODO, and other
-
-The format is currently under development, but is already usable. It needs to be improved for greater versatility. [TODO](./TODO.md) [ChangeLog](./CHANGELOG.md)
 
 ## License
 

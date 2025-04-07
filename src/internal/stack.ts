@@ -1,4 +1,4 @@
-import { SchemaValue, WriteStackValue } from '../types'
+import { ReadStackValue, SchemaValue, WriteStackValue } from "../types"
 
 export class WriteStack {
     array: WriteStackValue[]
@@ -7,13 +7,20 @@ export class WriteStack {
         this.array = [[object, 0]]
     }
 
+    /**
+     * Add element to serialization stack
+     * @param object Element
+     * @param overrideIndex An index that overrides the next one in the numbering
+     * @param isJustValues Designation that these are only simple values
+     * @param key Key for recording isMap objects correctly
+     */
     add(
         object: Object,
         overrideIndex: number = null,
-        isArrayWithoutObjects: boolean = null,
+        isJustValues: boolean = null,
         key: string = null
     ) {
-        this.array.push([object, overrideIndex, isArrayWithoutObjects, key])
+        this.array.push([object, overrideIndex, isJustValues, key])
     }
 
     pop() {
@@ -22,138 +29,143 @@ export class WriteStack {
 }
 
 export class ReadStack {
-    private object: Object
-    private nested: Array<string | number> = []
-    private lastRef: Object
-    private arrayIndex: number = -1
-
-    get result() {
-        return this.object
-    }
+    private originalObject: Object
+    /**
+     * Stack of nested objects within each other
+     */
+    private stack: ReadStackValue[] = []
+    /**
+     * An array that stores nesting of arrays or a map when reading
+     */
+    private notObjectsIndexes: number[] = []
 
     constructor(schema: SchemaValue) {
-        this.object = schema.isArray ? [] : {}
-        this.lastRef = this.object
+        this.originalObject = schema.isArray ? [] : {}
+        this.stack.push({ parent: null, key: null })
+        this.stack.push({ parent: this.originalObject, key: null })
     }
 
-    private updateRef() {
-        this.lastRef = this.object
-        for (let i = 0; i < this.nested.length; i++) {
-            this.lastRef = this.lastRef[this.nested[i]]
-        }
-    }
-
-    enter(field: string | number, array?: boolean) {
-        if (!this.lastRef[field]) {
-            this.lastRef[field] = array ? [] : {}
-        }
-        this.nested.push(field)
-        this.updateRef()
-    }
-
-    exit(count?: number) {
-        for (let i = 0; i < (count || 1); i++) {
-            this.nested.pop()
-        }
-        this.updateRef()
-    }
-
-    startArray() {
-        this.arrayIndex = 0
-    }
-
-    isLastArray() {
-        return this.arrayIndex !== -1
-    }
-
-    endArray() {
-        this.arrayIndex = -1
-    }
-
-    addObjectToArray() {
-        this.lastRef[this.arrayIndex] = {}
-        this.arrayIndex++
-    }
-
-    addObjectToObject(key: string) {
-        this.lastRef[key] = {}
-    }
-
-    addValueToArray(value: unknown) {
-        this.lastRef[this.arrayIndex] = value
-        this.arrayIndex++
-    }
-
-    setValueToObject(key: string, field: string, value: unknown) {
-        this.lastRef[key][field] = value
-    }
-
-    setValue(field: string, value: unknown) {
-        if (this.arrayIndex !== -1) {
-            this.lastRef[this.arrayIndex - 1][field] = value
-        } else this.lastRef[field] = value
-    }
-}
-
-export class ObjectBuilder {
-    stack: (Object | Array<unknown>)[]
-    path: (string | number)[]
-
-    constructor(isArray: boolean) {
-        this.stack = [isArray ? [] : {}]
-        this.path = []
-    }
-
-    startObject(key: string | number) {
-        const newObj = {}
-
-        if (Array.isArray(this.current)) {
-            this.current.push(newObj)
-        } else {
-            this.current[key] = newObj
-        }
-
-        this.stack.push(newObj)
-        if (key) this.path.push(key)
-    }
-
-    startArray(key: string | number) {
-        const newArr = []
-
-        if (Array.isArray(this.current)) {
-            this.current.push(newArr)
-        } else {
-            this.current[key] = newArr
-        }
-
-        this.stack.push(newArr)
-        if (key) this.path.push(key)
-    }
-
-    setValue(key: string | number, value: unknown) {
-        if (Array.isArray(this.current)) {
-            this.current.push(value)
-        } else {
-            this.current[key] = value
-        }
-    }
-
-    end() {
-        if (this.stack.length > 1) {
-            this.stack.pop()
-            this.path.pop()
-        }
-    }
-
-    get current() {
+    /**
+     * Returns current element in stack
+     */
+    private get currentFrame() {
         return this.stack[this.stack.length - 1]
     }
 
-    get isArray() {
-        return Array.isArray(this.current)
+    /**
+     * Returns current ref to object in stack
+     */
+    get currentRef() {
+        const { parent, key } = this.currentFrame
+        return key == null ? parent : parent[key]
     }
 
-    getResult() {
-        return this.stack[0]
+    /**
+     * Creating an object and moving to it on the stack
+     */
+    enterObject(key?: string) {
+        const container = {}
+        if (key !== undefined) {
+            this.currentRef[key] = container
+            this.stack.push({ parent: this.currentRef, key })
+        } else if (Array.isArray(this.currentRef)) {
+            this.currentRef.push(container)
+            this.stack.push({
+                parent: this.currentRef,
+                key: this.currentRef.length - 1
+            })
+        }
+    }
+
+    /**
+     * Creating an array and moving to it on the stack
+     */
+    enterArray(index: number, key?: string) {
+        const container: any[] = []
+        this.notObjectsIndexes.push(index)
+        if (key !== undefined) {
+            this.currentRef[key] = container
+            this.stack.push({ parent: this.currentRef, key })
+        } else if (Array.isArray(this.currentRef)) {
+            this.currentRef.push(container)
+            this.stack.push({
+                parent: this.currentRef,
+                key: this.currentRef.length - 1
+            })
+        }
+    }
+
+    /**
+     * Creating an array-like object and moving to it on the stack
+     */
+    enterMap(index: number, key?: string) {
+        this.notObjectsIndexes.push(index)
+        this.enterObject(key)
+    }
+
+    /**
+     * Exit nesting by N nesting amount
+     * @param levels default 1
+     */
+    exit(levels: number = 1) {
+        while (levels-- > 0 && this.stack.length > 2) {
+            this.stack.pop()
+        }
+    }
+
+    /**
+     * Exit from array, or array-like object
+     */
+    exitNotObject() {
+        this.notObjectsIndexes.pop()
+        this.exit()
+    }
+
+    /**
+     * Checking if the current index is the last in a list of array or array-like objects indices
+     * @param index index by schema
+     * @returns boolean
+     */
+    isEqualsIndexes(index: number) {
+        return (
+            this.notObjectsIndexes.length !== 0 &&
+            this.notObjectsIndexes[this.notObjectsIndexes.length - 1] === index
+        )
+    }
+
+    /**
+     * Sets a field in the current object
+     * @param key field name
+     * @param value field value
+     */
+    setField(key: string, value: any) {
+        this.currentRef[key] = value
+    }
+
+    /**
+     * Pushes simple value to array.
+     * @param value not Object value
+     */
+    pushValue(value: any) {
+        if (Array.isArray(this.currentRef)) {
+            this.currentRef.push(value)
+        }
+    }
+
+    get result() {
+        return this.originalObject
+    }
+
+    get currentKey() {
+        const frame = this.stack[this.stack.length - 1]
+        return frame.key
+    }
+
+    get currentParent() {
+        return this.stack[this.stack.length - 1].parent
+    }
+
+    get isArray() {
+        return Array.isArray(this.currentRef)
     }
 }

@@ -1,6 +1,7 @@
-import ieee754 from 'ieee754'
-import { TypeByte } from '../types'
-import { Context } from './context'
+import ieee754 from "ieee754"
+import { TypeByte } from "../types"
+import { Context } from "./context"
+import { DeserializationError, SerializationError } from "../errors"
 
 const BIG_INT_ZERO = BigInt(0)
 const BIG_INT_ONE = BigInt(1)
@@ -24,8 +25,10 @@ export const Value = {
     read(this: Context) {
         const type = this.read()
         switch (type) {
-            case TypeByte.Bool:
-                return Bool.read.call(this)
+            case TypeByte.True:
+                return true
+            case TypeByte.False:
+                return false
             case TypeByte.VarInt32:
                 return VarInt32.read.call(this)
             case TypeByte.VarInt64:
@@ -45,19 +48,19 @@ export const Value = {
             case TypeByte.String:
                 return Str.read.call(this)
             default:
-                console.log(type)
-                throw new Error('TODO: Place error here')
+                throw new DeserializationError("Unsupported data type " + type)
         }
     },
     write(this: Context, value: unknown) {
         switch (typeof value) {
-            case 'boolean':
-                this.write(TypeByte.Bool)
-                Bool.write.call(this, value)
+            case "boolean":
+                this.write(value ? TypeByte.True : TypeByte.False)
                 return
-            case 'number':
+            case "number":
                 if (value > INT_64_MAX || value < INT_64_MIN)
-                    throw new Error('TODO: Place error here')
+                    throw new SerializationError(
+                        "Number outside 64 bits, value " + value
+                    )
 
                 if (!Number.isInteger(value)) {
                     this.write(TypeByte.FloatIEEE)
@@ -85,9 +88,11 @@ export const Value = {
                     VarInt64.write.call(this, value)
                 }
                 return
-            case 'bigint':
+            case "bigint":
                 if (value > BIG_INT_MAX || value < -BIG_INT_MAX)
-                    throw new Error('TODO: Place error here')
+                    throw new SerializationError(
+                        "BigInt outside 128 bits, value " + value
+                    )
 
                 this.write(TypeByte.VarIntBN)
                 this.write(value < 0 ? 1 : 0)
@@ -96,19 +101,23 @@ export const Value = {
                     value < 0 ? -BigInt(value) : BigInt(value)
                 )
                 return
-            case 'string':
+            case "string":
                 this.write(TypeByte.String)
                 Str.write.call(this, value)
                 return
-            case 'object':
+            case "object":
                 if (value === null) this.write(TypeByte.Null)
-                else throw new Error('TODO: Place error here')
+                else
+                    throw new SerializationError(
+                        "Unexpected object when serializing simple values "
+                    )
                 return
             default:
-                console.log(value)
-                throw new Error('TODO: Place error here')
+                throw new SerializationError(
+                    "Unsupported data type " + typeof value + " value " + value
+                )
         }
-    },
+    }
 }
 
 /**
@@ -122,7 +131,7 @@ const VarInt32 = {
     },
     write(this: Context, value: number) {
         UVarInt32.write.call(this, zigzag.encode(value))
-    },
+    }
 }
 
 /**
@@ -154,6 +163,20 @@ export const UVarInt32 = {
 
         this.buffer[this.offset++] = value
     },
+    peek(this: Context) {
+        let result = 0,
+            shift = 0,
+            b,
+            o = this.offset + 0
+
+        do {
+            b = this.buffer[o++]
+            result += (b & 0x7f) << shift
+            shift += 7
+        } while (b >= 0x80)
+
+        return result >>> 0
+    }
 }
 
 /**
@@ -167,7 +190,7 @@ const VarInt64 = {
     },
     write(this: Context, value: number) {
         VarIntBN.write.call(this, zigzagBN.encode(BigInt(value)))
-    },
+    }
 }
 
 /**
@@ -180,7 +203,7 @@ const UVarInt64 = {
     },
     write(this: Context, value: number) {
         VarIntBN.write.call(this, BigInt(value))
-    },
+    }
 }
 
 /**
@@ -213,7 +236,7 @@ const VarIntBN = {
         }
 
         this.buffer[this.offset++] = Number(value)
-    },
+    }
 }
 
 /**
@@ -252,7 +275,7 @@ const FloatFE = {
 
         UVarInt64.write.call(this, numerator)
         this.buffer[this.offset++] = decimals & 0xff
-    },
+    }
 }
 
 /**
@@ -267,16 +290,7 @@ const FloatIEEE = {
     write(this: Context, value: number) {
         ieee754.write(this.buffer, value, this.offset, false, 54, 8)
         this.offset += 8
-    },
-}
-
-const Bool = {
-    read(this: Context) {
-        return this.buffer[this.offset++] ? true : false
-    },
-    write(this: Context, value: boolean) {
-        this.buffer[this.offset++] |= value ? 0x01 : 0x00
-    },
+    }
 }
 
 /**
@@ -287,11 +301,11 @@ const Bool = {
 const Str = {
     read(this: Context) {
         let length = UVarInt32.read.call(this)
-        if (length <= 0) return ''
+        if (length <= 0) return ""
 
         const end = this.offset + length
 
-        var str = ''
+        var str = ""
         for (; this.offset < end; ) {
             var t = this.read()
             if (t <= 0x7f) {
@@ -374,7 +388,7 @@ const Str = {
             } else len += 3
         }
         return len
-    },
+    }
 }
 
 export const Empty = {
@@ -393,13 +407,15 @@ export const Empty = {
             case TypeByte.EmptyCount:
                 return UVarInt32.read.call(this)
             default:
-                throw new Error('TODO: ADD ERROROROROR')
+                throw new DeserializationError(
+                    "An unexpected type when reading emptiness, type " + header
+                )
         }
     },
     check(this: Context) {
         const header = this.buffer[this.offset]
         return header === TypeByte.Empty || header === TypeByte.EmptyCount
-    },
+    }
 }
 
 const zigzag = {
@@ -408,7 +424,7 @@ const zigzag = {
     },
     decode(val: number) {
         return val % 2 === 1 ? -(val + 1) / 2 : val / 2
-    },
+    }
 }
 
 const zigzagBN = {
@@ -421,5 +437,5 @@ const zigzagBN = {
         return val % BIG_INT_TWO === BIG_INT_ONE
             ? -(val + BIG_INT_ONE) / BIG_INT_TWO
             : val / BIG_INT_TWO
-    },
+    }
 }

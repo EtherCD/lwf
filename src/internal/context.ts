@@ -1,6 +1,6 @@
-import { SchemaValue } from '../types'
-import { Schema } from './schema'
-import { ReadStack, WriteStack } from './stack'
+import { SchemaValue } from "../types"
+import { Schema } from "./schema"
+import { ReadStack, WriteStack } from "./stack"
 
 export class Context {
     buffer: Uint8Array
@@ -56,36 +56,12 @@ export class WriteContext extends Context {
 export class ReadContext extends Context {
     stack: ReadStack
     lastNestingDepth = 0
-    lastIndex: number
+    lastSchema: SchemaValue = null
+    lastIndex: number = null
 
     constructor(buffer: Uint8Array, schema: Schema) {
         super(schema)
         this.buffer = buffer
-        this.stack = new ReadStack(schema.get(0))
-    }
-
-    enter(schema: SchemaValue) {
-        if (schema.key && schema.key.length !== 0) {
-            this.stack.enter(schema.key, schema.isArray)
-        }
-    }
-
-    startArray() {
-        this.stack.startArray()
-    }
-
-    endArray() {
-        if (this.lastIndex && this.schema.get(this.lastIndex).isArray)
-            this.stack.endArray()
-    }
-
-    nesting(schema: SchemaValue, index: number) {
-        if (index !== this.lastIndex) {
-            this.stack.exit(this.lastNestingDepth - schema.nestingDepth + 1)
-        }
-
-        this.enter(schema)
-        this.lastNestingDepth = schema.nestingDepth
-        this.lastIndex = index
+        this.stack = new ReadStack(schema.getSchema(0))
     }
 }

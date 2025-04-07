@@ -9,7 +9,7 @@ export type RawSchemaValue = {
      *
      * NOTE: It is better to specify the order from those data that are most often present to those that are absent, so that the data is recorded more compactly.
      */
-    args?: GenericSchemaValues[]
+    fields?: GenericSchemaValues[]
     /**
      * Specifies the key by which the object will be written to the top object of the structure
      */
@@ -17,32 +17,28 @@ export type RawSchemaValue = {
     /**
      * Indicates which schemas are nested inside
      */
-    includes?: string[]
+    nested?: string[]
     /**
-     * Specifies that the diagram will describe objects within the array.
+     * Specifies that the schema will describe objects within the array.
      */
     isArray?: boolean
     /**
-     * Indicates that the array may contain more than just objects, and that they should be written in the correct order.
+     * An object described by the principle [unique key]: [Object]. Will be written as the same data blocks, but a key will be placed at the beginning of them
      */
-    canContainNotObjects?: boolean
-    /**
-     * An object described by the principle [unique key]: value. Will be written as the same data blocks, but a key will be placed at the beginning of them
-     */
-    isKeyedObject?: boolean
+    isMap?: boolean
 }
 
 export type SchemaValue = RawSchemaValue & {
     /**
-     * Indicates which schemas are nested inside
+     * Indexes of nested schemas
      */
-    includesIndexes?: number[]
+    nestedI?: number[]
     /**
-     * Indicates which schemas are nested inside
+     * Keys of nested schemas
      */
-    includesObjects?: string[]
+    nestedK?: string[]
     /**
-     *
+     * Nesting depth
      */
     nestingDepth?: number
 }
@@ -60,11 +56,12 @@ export enum TypeByte {
     VarIntBN = 0x04,
     FloatFE = 0x05,
     FloatIEEE = 0x06,
-    Bool = 0x07,
-    String = 0x08,
-    Null = 0x09,
-    Empty = 0x0a,
-    EmptyCount = 0x0b,
+    False = 0x07,
+    True = 0x08,
+    String = 0x09,
+    Null = 0x0a,
+    Empty = 0x0b,
+    EmptyCount = 0x0c
 }
 
 /**
@@ -72,25 +69,7 @@ export enum TypeByte {
  */
 export type WriteStackValue = [Object, number?, boolean?, string?]
 
-export type ReadStackValue = [Object]
-
-// export type VarsContext = {
-//     buffer: Uint8Array
-//     offset: number
-
-//     ensure: (elements: number) => void
-//     write: (byte: number) => void
-//     read: () => number
-
-//     schema: SingleSchema[]
-// }
-
-// export type WriteBlockContext = VarsContext & {
-//     sOffset: number
-//     nested: [object, number?][]
-//     index: number
-// }
-
-// export type ReadBlockContext = VarsContext & {
-//     readBuffer: Map<number, Object>
-// }
+export type ReadStackValue = {
+    parent: any
+    key: string | number | null
+}

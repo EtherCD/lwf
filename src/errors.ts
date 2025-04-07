@@ -15,3 +15,9 @@ export class SerializationError extends Error {
         super(message)
     }
 }
+
+export class DeserializationError extends Error {
+    constructor(message: string) {
+        super(message)
+    }
+}

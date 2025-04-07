@@ -1,50 +1,62 @@
-import { deepStrictEqual } from 'assert'
-import lwf from '../src'
-import { Schema } from '../src/internal/schema'
-import fs from 'fs'
+import { deepStrictEqual } from "assert"
+import lwf from "../src"
+import { Schema } from "../src/internal/schema"
+import fs from "fs"
+import util from "util"
+import { ReadStack } from "../src/internal/stack"
 
 const pixels: { x: number; y: number; color: string }[] = []
-for (let x = 0; x < 10; x++)
-    for (let y = 0; y < 10; y++) pixels.push({ x, y, color: '#000000' })
+for (let x = 0; x < 2; x++)
+    for (let y = 0; y < 2; y++) pixels.push({ x, y, color: "#000000" })
 
 const obj = {
-    properties: [20, 20, 20, { lite: true }, 20],
-    players: {
-        0: {
-            name: 'EtherCD',
+    users: {
+        1: {
+            name: "mirdukkkkk",
+            age: "empty",
+            visited: ["Empty", "Void"]
         },
-    },
+        2: {
+            name: "EtherCD",
+            age: "abyss",
+            visited: ["Abyss", "Void"]
+        }
+    }
 }
 
-test('Deser tests', () => {
+test("Deser tests", () => {
     const schema = new Schema({
+        c: {
+            nested: ["a"]
+        },
         a: {
-            args: ['width', 'height'],
-            includes: ['b', 'c', 'd'],
+            key: "users",
+            fields: ["name", "age"],
+            isMap: true,
+            nested: ["b"]
         },
         b: {
-            args: ['x', 'y', 'color'],
-            isArray: true,
-            key: 'pixels',
-        },
-        c: {
-            args: ['lite'],
-            isArray: true,
-            canContainNotObjects: true,
-            key: 'properties',
-        },
-        d: {
-            args: ['name'],
-            key: 'players',
-            isKeyedObject: true,
-        },
+            key: "visited",
+            isArray: true
+        }
     })
 
+    console.time("json stringify")
+    const text = JSON.stringify(obj)
+    console.timeEnd("json stringify")
+    console.time("json parse")
+    JSON.parse(text)
+    console.timeEnd("json parse")
+
+    console.time("lwf serialization")
     const buffer = lwf.serialize(obj, schema)
+    console.timeEnd("lwf serialization")
 
+    console.time("lwf deserialization")
     const out = lwf.deserialize(buffer, schema)
+    console.timeEnd("lwf deserialization")
 
-    console.log(out)
-
+    // Always fails here.
+    // I'll fix that in future.
     deepStrictEqual(out, obj)
 })

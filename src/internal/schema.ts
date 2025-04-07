@@ -1,67 +1,69 @@
-import { SchemaError } from '../errors'
-import { ProcessedSchema, RawSchema, SchemaValue } from '../types'
+import { SchemaError } from "../errors"
+import { ProcessedSchema, RawSchema, SchemaValue } from "../types"
 
+/**
+ * Scheme for serialization and deserialization of objects.
+ *
+ * Should not be changed after the object is built.
+ * @param raw raw Schema
+ */
 export class Schema {
-    value: ProcessedSchema
+    private value: ProcessedSchema
 
     constructor(raw: RawSchema) {
-        this.value = this.process(raw)
+        this.process(raw)
     }
 
-    get(index: number): SchemaValue {
+    getSchema(index: number): SchemaValue {
         const result = this.value[index]
         if (!result) {
-            console.log(index)
-            throw new SchemaError('')
+            throw new SchemaError("")
         }
         return result
     }
 
-    private process(raw: RawSchema): ProcessedSchema {
-        let result: ProcessedSchema = []
+    private process(raw: RawSchema) {
+        const result: ProcessedSchema = []
         const indexes = Object.keys(raw)
-        let depthMap = new Map<string, number>()
 
-        for (const index of indexes) {
+        const indexMap = new Map<string, number>()
+        indexes.forEach((key, i) => indexMap.set(key, i))
+
+        const parentChains: number[][] = Array(indexes.length)
+            .fill(null)
+            .map(() => [])
+
+        for (let i = 0; i < indexes.length; i++) {
+            const index = indexes[i]
             const val = raw[index]
             const processed = { ...val } as SchemaValue
 
-            let depth = (depthMap.get(index) ?? 0) + 1
+            const nestedI: number[] = []
+            const nestedK: string[] = []
 
-            if (val.includes) {
-                let includesIndexes: number[] = []
-                let includesObjects: string[] = []
-
-                for (const key of val.includes) {
-                    const includeIndex = indexes.indexOf(key)
-                    if (includeIndex === -1) {
+            if (val.nested) {
+                for (const nestedKey of val.nested) {
+                    const nestedIndex = indexMap.get(nestedKey)
+                    if (nestedIndex === undefined) {
                         throw new SchemaError(
-                            `Trying to include non-existent schema in \`${index}\`, includes \`${key}\``
+                            `Trying to include non-existent schema in \`${index}\`, includes \`${nestedKey}\``
                         )
                     }
 
-                    includesIndexes.push(includeIndex)
-                    includesObjects.push(raw[key].key + '')
+                    nestedI.push(nestedIndex)
+                    nestedK.push(raw[nestedKey].key + "")
 
-                    depthMap.set(key, depth)
-                }
-                processed.includesIndexes = includesIndexes
-                processed.includesObjects = includesObjects
-            }
-
-            processed.nestingDepth = depth
-
-            if (!val.isArray && !val.isKeyedObject) {
-                if (!val.args) {
-                    throw new SchemaError(
-                        `In schema with key \`${val.key}\`, args must be described`
-                    )
+                    parentChains[nestedIndex] = [...parentChains[i], i]
                 }
             }
+
+            processed.nestedI = nestedI.length ? nestedI : undefined
+            processed.nestedK = nestedK.length ? nestedK : undefined
+            processed.nestingDepth = parentChains[i].length + 1
 
             result.push(processed)
         }
 
-        return result
+        this.value = result
     }
 }
