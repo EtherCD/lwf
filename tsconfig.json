@@ -1,14 +1,18 @@
 {
-	"compilerOptions": {
-		"outDir": "dist",
-		"declaration": true,
-		"declarationMap": true,
-		"emitDeclarationOnly": false,
-		"target": "ES6",
-		"module": "ESNext",
-		"moduleResolution": "Node",
-		"esModuleInterop": true,
-		"strict": true
-	},
-	"include": ["src", "test/test.test.ts"]
+    "compilerOptions": {
+        "outDir": "dist",
+        "declaration": true,
+        // "declarationMap": true,
+        // "emitDeclarationOnly": false,
+        "target": "es2016",
+        "module": "commonjs",
+        // "moduleResolution": "Node",
+        "esModuleInterop": true,
+        "allowJs": true,
+        "checkJs": false
+    },
+    "ts-node": {
+        "esm": true
+    },
+    "include": ["src", "test/test.test.ts"]
 }

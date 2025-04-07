@@ -1,126 +1,96 @@
 <div align="center">
-  <img src="docs/icon-small.svg" height="108" alt="LWF">
-  <p>Lightweight Format - A format for storing data by writing sequential blocks of data, without using any designations</p>
+  <img src="docs/logotype.svg" height="108" alt="LWF">
+  <p>A very compact, compression friendly, binary format for storing JSON like objects.</p>
   </hr>
 
-  <img src="https://img.shields.io/npm/last-update/lwf"/>
-  <img src="https://img.shields.io/github/languages/code-size/EtherCD/lwf?">
-  <img src="https://img.shields.io/npm/v/lwf">
+  <img src="https://img.shields.io/npm/last-update/lwf?style=flat-square"/>
+  <img src="https://img.shields.io/bundlephobia/min/lwf?style=flat-square&color=%2300cc99">
+  <img src="https://img.shields.io/npm/v/lwf?style=flat-square">
 
 <hr/>
 <p>Guide to Using This Format</p>
-L[🇬🇧,<a href="./docs/Basics-en.md">English</a>]
-L[🇷🇺,<a href="./docs/Basics-ru.md">Russian</a>]
-L[🇲🇨,<a href="./docs/Basics-id.md">Indonesian</a>]
+<a href="./docs/Usage.md">[🇬🇧,English]</a>
 <hr/>
 
 </div>
 
 > [!IMPORTANT]
-> Currently in deep developing
+> The format stores data according to the scheme, see the guide
+> There are also some limitations
 
-## What is this and why?
+# About
 
-This is a data storage format similar to JSON, YAML, TOML, and others. But its distinctive feature is its compactness.
+This format uses a scheme for writing and reading data. The main goal of the format is compactness and compression friendliness. Therefore, to make the record even more compact, the scheme stores the names of the fields by which the data is stored. And the data itself in its pure form is stored in binary form.
 
-This is achieved by the fact that the data is stored in its pure form, without designations of their nesting and order. To indicate this, a diagram is used that describes the order of parsing data and assembling it into a format.
+This is the principle of data storage. More details can be found in the [specification](./docs/Specification.md)
 
-Can be useful for sending data between client and server; the format is also designed to work with compression.
+## Compactness and compression
 
-## How much more compact?
+The test data package is located here [test/index.test.ts](./test/index.test.ts). When stored as json, it takes up 21.22 KB. When stored in lwfb, it takes up only 8.99 KB.
 
-An object like the one in [test/index.test.ts](./test/index.test.ts) has a size of 21 Kilobytes. Once converted to lwf format, it takes up 11 Kilobytes.
+An object with an array of 200^2 objects that is in [test/pixels.test.ts](./test/pixels.test.ts). When converted to json it is 1363.29Kb in size, in lwfb 614.06Kb.
 
-The format is more efficient in saving space when used with objects in which the data takes up less space than the structure of this same data
+The format focuses on ensuring that even if data markup is needed, it should be in a repeating format, allowing compression to work more efficiently.
+For example how to write schemas
 
-For example, like a map for a game, where the data is often less than its descriptions. Like this example
+### Usage example
 
-```ts
-{
-  data: {
-    name: "Test Map",
-    color: {
-      fill: "#ffffff"
-    }
-  },
-  areas: [
-    {
-      properties: {
-        x: 0,
-        y: 0,
-        w: 0,
-        h: 0,
-      },
-      zones: [
-        {type: "teleport", x: 0, y: 0, w: 320, h: 64}
-      ]
-    }
-  ]
-}
-```
-
-In this case, in lwf format the data will look like this:
-
-```
-p[Test Map]
-c[,,#ffffff]
-a[0,0,0,0]
-z[teleport,0,0,320,64]
-```
-
-## Data storage format
-
-### Syntax
-
-Data is stored in so-called blocks, where the values ​​inside it are data. And the letter before the table of contents block.
-
-The format relies on sequential recording of data in a row, which means it may have gaps
-
-```
-a - header
-[Something,1000] - block of data
-[,,] - indicates a pass to specify data in the next argument
-```
-
-### Schema
-
-For correct work with data, and correct conversion to a string and return from. You need to write a diagram that describes the data structure
-
-To correctly write a schema, you will need to fully understand what data may be in the object.
-
-A simple example of using the schema:
+For a more precise understanding of how to use, again, look at the [guide](./docs/Basics-en.md)
 
 ```ts
-const schema: LWFSchema = {
-  a: {
-    // Key of the object that will be processed in this data block
-    key: 'message',
-    // Sequentially written data keys that will be listed in the list of values ​​of this data
-    args: ['message', 'length', 'verified', 'name', 'grammarCheck'],
-  },
+import lwf from "lwf"
+
+const schema = new lwf.Schema{
+    a: {
+      isArray:true,
+      fields: ["message", "length", "verified", "name", "grammarCheck"]
+    }
 }
 
-const object = {
-  message: {
-    message: 'Hello World!!!',
+const object = [
+  {
+    message: "Hello World!!!",
     length: 1000,
     verified: true,
-    grammarCheck: false,
-  },
-}
+    grammarCheck: false
+  }
+]
 
-const result = LWF.stringify(object, schema) // Returns a[Hello World!!!,1000,true,false]
-LWF.parse(result, schema) // Should return an object identical to the input
+// Returns UInt8Array
+const buffer = lwf.serialize(object, schema)
+// Returns object or array
+const array = lwf.deserialize(result, schema)
 ```
+
+## Performance
+
+On the Xeon E3-1230 v2 processor, these are the numbers you get, compared to JSON
+
+Objects to check - array below, repeated 200^2 times
+
+```json
+{
+  "a": 2 ** 53 - 1,
+  c: {
+    str: "TEST123",
+    large: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas sodales dolor quis nisi tincidunt, id gravida neque ornare. Donec sodales tempus metus, et iaculis libero interdum eu. Suspendisse ac neque quis lectus porttitor gravida sit amet blandit neque. Nunc iaculis mollis ex, nec gravida nunc imperdiet et. Praesent non pretium. "
+  }
+}
+```
+
+| Process     | Format | Time (ms) | Size     |
+| ----------- | ------ | --------- | -------- |
+| serialize   | LWF    | 405       | 14140.63 |
+| stringify   | JSON   | 65        | 15351.56 |
+| deserialize | LWF    | 4552      | x        |
+| parse       | JSON   | 58        | x        |
+
+Parsing is not the fastest process at the moment. The approach to parsing will be changed soon.
 
 ## Special
 
 Thanks to
 [@mirdukkkkk](https://github.com/mirdukkkkk) for fixing and writing more technical competently guide ❤️
-
-## TODO, and other
-
-The format is currently under development, but is already usable. It needs to be improved for greater versatility. [TODO](./TODO.md) [ChangeLog](./CHANGELOG.md)
 
 ## License
 
