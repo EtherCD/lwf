@@ -14,8 +14,8 @@
 
 </div>
 
-> [!IMPORTANT]
 > The format stores data according to the scheme, see the guide
+>
 > There are also some limitations
 
 # About
@@ -70,11 +70,11 @@ Objects to check - array below, repeated 200^2 times
 
 ```json
 {
-  "a": 2 ** 53 - 1,
-  c: {
-    str: "TEST123",
-    large: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas sodales dolor quis nisi tincidunt, id gravida neque ornare. Donec sodales tempus metus, et iaculis libero interdum eu. Suspendisse ac neque quis lectus porttitor gravida sit amet blandit neque. Nunc iaculis mollis ex, nec gravida nunc imperdiet et. Praesent non pretium. "
-  }
+    "a": 9007199254740991,
+    "c": {
+        "str": "TEST123",
+        "large": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas sodales dolor quis nisi tincidunt, id gravida neque ornare. Donec sodales tempus metus, et iaculis libero interdum eu. Suspendisse ac neque quis lectus porttitor gravida sit amet blandit neque. Nunc iaculis mollis ex, nec gravida nunc imperdiet et. Praesent non pretium. "
+    }
 }
 ```
 
@@ -94,4 +94,4 @@ Thanks to
 
 ## License
 
-[MIT](./LICENSE.txt)
+[BSD-3-Clause](./LICENSE.txt)
