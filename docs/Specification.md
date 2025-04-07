@@ -1,6 +1,12 @@
 # Specification
 
-The current version of the specification is v1
+The current version of the specification is v1.1
+
+Old specifications, and the version of the library implementing it are here:
+
+[Lib](https://github.com/EtherCD/lwf/tree/v2.0)
+
+[Specs](https://github.com/EtherCD/lwf/blob/v2.0/docs/Specification.md)
 
 ## Pseudo-syntax
 
@@ -27,47 +33,53 @@ The following pseudo syntax entry will be an example. It is read as, the index h
 
 ### Integer
 
-The format represents the following types of data: `VarInt32`, `UVarInt32`, `VarInt64`, `UVarInt64`, `VarIntBN`
+In the format, all numbers are either uin64 or int64. For compactness of recording, LEB128 (Little Endian Base 128) encoding is used. Also in the format there is a 128-bit version of Int
 
-To write numbers, the LEB128 approach is used, or Little Endian Base 128, where 8 bits indicate that the number continues, and we can read the next byte.
+To record signed numbers, zigzag encoding is used, it consistently holds the negative value first, the positive value second. Example of values ​​in ascending order: 0, -1, 1, -2, 2.
 
-To record signed numbers, zigzag encoding is used, it consistently holds the negative value first, the positive value second. Example of values ​​in ascending order: 0, 1, -1, 2, -2.
+| HeadByte | Type    | Bit depth        |
+| -------- | ------- | ---------------- |
+| 00       | Int64   | signed 64bits    |
+| 01       | Int128  | positive 128bits |
+| 02       | NInt128 | negative 128bits |
 
-For the VarIntBN data type, the sign is specified by the byte at the beginning `if byte == 0x00 then +N else -N`, since encoding it via zigzag takes too much space.
+Since zigzag encoding is not suitable for a 128-bit number, since it is in particular unlimited, therefore it is not worth multiplying it by 2, the record will become even more huge. There are 2 types in the format that describe the sign for this number.
 
-| HeadByte | Type      | Bit depth       |
-| -------- | --------- | --------------- |
-| 00       | VarInt32  | signed 32bits   |
-| 01       | UVarInt32 | unsigned 32bits |
-| 02       | VarInt64  | signed 64bits   |
-| 03       | UVarInt64 | unsigned 64bits |
-| 04       | VarIntBN  | 128bits         |
+Unsigned integers are represented in an even more compact notation. For this purpose, space is allocated in the type byte for these numbers, starting with **0x10** and ending with **0x87**, the last number will automatically indicate that the following bytes will be UInt, minus the number written in the byte.
 
-### Float numbers
+Example of encoding UInt
 
-The format presents 2 types of fraction notation. The first type converts a float number into a numerator/denominator notation. This is a more compact notation and less fast. The second type of notation uses the IEEE 754 standard, 8-bit, with 11 exponent bits and 53 bits of mantissa.
+```lwfb
+0x10 # 0
+0x86 # 118
+0x87 0x00 # 119
+0x87 0x01 # 120
+```
 
-| HeadByte | Type      | Description                                               | Pseudo-syntax                                                         |
-| -------- | --------- | --------------------------------------------------------- | --------------------------------------------------------------------- |
-| 05       | FloatFE   | Write a floating point number as numerator/10^denominator | \| hb \| sign 00 +N 01 -N \| numerator in uvarint64 \| denominator \| |
-| 06       | FloatIEEE | IEEE 754 floating point notation                          | \| hb \| value in 8bits \|                                            |
+### Float and Double
 
-FloatFE converts the number to a 64-bit integer, and writes the denominator as a single byte as a power of 10. The limitations are that float is written with 14 common digits.
+The format contains 4 types responsible for fractional numbers, two of which are **float** and **double**, or 32-bit and 64-bit. The other two are fractions written according to the principle of conversion into a rational fraction. The limitations for such a breakdown are the 64-bit number into which the fraction will turn.
 
-Example of a FloatFE entry: 127.123 = `| 127123 as uvarint64 | 3 |`
+| HeadByte | Type     | Description                         | Pseudo-syntax                                               |
+| -------- | -------- | ----------------------------------- | ----------------------------------------------------------- |
+| 03       | Float    | Float (IEEE754 4 bit) or 32bit      | \| hb \| 4 bytes \|                                         |
+| 04       | Double   | Double (IEEE754 8 bit) or 64bit     | \| hb \| 8 bytes \|                                         |
+| 05       | FloatFE  | Positive fraction Encoding of float | \| hb \| numerator in varint \| denominator is pow of 10 \| |
+| 06       | NFloatFE | Negative fraction Encoding of float | \| hb \| numerator in varint \| denominator is pow of 10 \| |
+
+Example of a FloatFE entry: 127.123 = `| 05 | 127123 | 3 |`
 
 ### Booleans and Strings, Null
 
-Boolean values ​​are written to `07` and `17`
+Strings are encoded in utf-8 format, their length is written according to the Uint principle, as well as the allocated bytes in the type byte, starting with `0x88` and ending with `0xFF`. These bytes are both pointers that this is a string, and at the same time to the length. As soon as the number becomes `0xFF`, then this indicates that the length continues as a varint, minus the number that is written in the type
 
-Strings are encoded using UTF-8, and the length of the encoded UTF-8 numbers is written at the beginning after HeadByte
+Next are simple data types
 
-| HeadByte | Type       | Pseudo-syntax                                    |
-| -------- | ---------- | ------------------------------------------------ |
-| 07       | bool false | \| hb \|                                         |
-| 08       | bool true  | \| hb \|                                         |
-| 09       | string     | \| hb \| length in uvarint32 \| utf-8 chars.. \| |
-| 0a       | null       | \| hb \|                                         |
+| HeadByte | Type         |
+| -------- | ------------ |
+| 07       | bool - false |
+| 08       | bool - true  |
+| 09       | null         |
 
 ### Empty
 
@@ -75,8 +87,8 @@ Data types responsible for skipping them.
 
 | HeadByte | Type        | Description             | Pseudo-syntax                  |
 | -------- | ----------- | ----------------------- | ------------------------------ |
-| 0b       | empty       | Single empty field      | \| hb \|                       |
-| 0c       | empty count | Empty for number values | \| hb \| count in uvarint32 \| |
+| 0e       | empty       | Single empty field      | \| hb \|                       |
+| 0f       | empty count | Empty for number values | \| hb \| count in uvarint32 \| |
 
 Used to indicate gaps in a chunk, since a chunk encodes the values ​​of only those fields that are specified in the scheme, missing values ​​must be replaced with gaps. Otherwise, reading that relies on the length of fields in the scheme will stop reading correctly.
 

@@ -10,18 +10,7 @@ for (let x = 0; x < 2; x++)
     for (let y = 0; y < 2; y++) pixels.push({ x, y, color: "#000000" })
 
 const obj = {
-    users: {
-        1: {
-            name: "mirdukkkkk",
-            age: "empty",
-            visited: ["Empty", "Void"]
-        },
-        2: {
-            name: "EtherCD",
-            age: "abyss",
-            visited: ["Abyss", "Void"]
-        }
-    }
+    users: ["118.123342", "118.123342", "118.123342"]
 }
 
 test("Deser tests", () => {
@@ -31,12 +20,6 @@ test("Deser tests", () => {
         },
         a: {
             key: "users",
-            fields: ["name", "age"],
-            isMap: true,
-            nested: ["b"]
-        },
-        b: {
-            key: "visited",
             isArray: true
         }
     })
@@ -50,13 +33,32 @@ test("Deser tests", () => {
 
     console.time("lwf serialization")
     const buffer = lwf.serialize(obj, schema)
+    console.log(buffer)
     console.timeEnd("lwf serialization")
+
+    let string = ""
+    for (const e of buffer) {
+        let r = decToHex(e)
+        string += `0x${r.length === 1 ? "0" : ""}${r} `
+    }
+    console.log(string)
 
     console.time("lwf deserialization")
     const out = lwf.deserialize(buffer, schema)
     console.timeEnd("lwf deserialization")
 
+    console.log(out)
+
     // Always fails here.
     // I'll fix that in future.
     deepStrictEqual(out, obj)
 })
+
+var hexchar = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, "A", "B", "C", "D", "E", "F"].map(
+    (v) => v.toString()
+)
+function decToHex(num) {
+    let out = num & 15
+    num = num >>> 4
+    return num ? decToHex(num) + hexchar[out] : hexchar[out]
+}

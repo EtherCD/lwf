@@ -8,6 +8,8 @@ test("Test sizes of serialized data", () => {
     console.log("Size in json: " + Math.round(jsonData.length / 10.24) / 100)
     console.log("Size in lwfb: " + Math.round(binaryData.length / 10.24) / 100)
 
+    console.log(binaryData)
+
     const out = lwf.deserialize(binaryData, schema)
 
     deepStrictEqual(out, object)

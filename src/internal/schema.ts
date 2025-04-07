@@ -17,7 +17,9 @@ export class Schema {
     getSchema(index: number): SchemaValue {
         const result = this.value[index]
         if (!result) {
-            throw new SchemaError("")
+            throw new SchemaError(
+                "Trying get not exist schema, " + index.toString(16)
+            )
         }
         return result
     }

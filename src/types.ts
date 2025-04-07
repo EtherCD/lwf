@@ -47,21 +47,22 @@ export type GenericSchemaValues = string
 
 /**
  * Types of values.
+ *
+ * Limited to 15 types
  */
 export enum TypeByte {
-    VarInt32 = 0x00,
-    UVarInt32 = 0x01,
-    VarInt64 = 0x02,
-    UVarInt64 = 0x03,
-    VarIntBN = 0x04,
-    FloatFE = 0x05,
-    FloatIEEE = 0x06,
-    False = 0x07,
-    True = 0x08,
-    String = 0x09,
-    Null = 0x0a,
-    Empty = 0x0b,
-    EmptyCount = 0x0c
+    Int = 0x00,
+    Int128,
+    NInt128,
+    Float,
+    Double,
+    FloatFE,
+    NFloatFE,
+    False,
+    True,
+    Null,
+    Empty = 0x0e,
+    EmptyCount = 0x0f
 }
 
 /**

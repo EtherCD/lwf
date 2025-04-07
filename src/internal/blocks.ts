@@ -1,7 +1,7 @@
 import { SerializationError } from "../errors"
 import { SchemaValue, WriteStackValue } from "../types"
 import { ReadContext, WriteContext } from "./context"
-import { Empty, UVarInt32, Value } from "./vars"
+import { Empty, Uint, Value } from "./vars"
 
 export const Block = {
     write(this: WriteContext, element: WriteStackValue) {
@@ -26,8 +26,8 @@ export const Block = {
 
             // If the current list consists only of simple values, we write
             if (isJustValues) {
-                UVarInt32.write.call(this, index)
-                UVarInt32.write.call(this, values.length)
+                Uint.write.call(this, index)
+                Uint.write.call(this, values.length)
                 for (let i = values.length - 1; i >= 0; i--)
                     Value.write.call(this, values[i])
                 return
@@ -61,8 +61,8 @@ export const Block = {
             const keys = Object.keys(object)
 
             if (isJustValues) {
-                UVarInt32.write.call(this, index)
-                UVarInt32.write.call(this, keys.length)
+                Uint.write.call(this, index)
+                Uint.write.call(this, keys.length)
                 for (let i = keys.length - 1; i >= 0; i--) {
                     const key = keys[i]
                     Value.write.call(this, key)
@@ -95,7 +95,7 @@ export const Block = {
             return
         }
 
-        UVarInt32.write.call(this, index)
+        Uint.write.call(this, index)
 
         const fields = schema.fields
         const objects = schema.nestedK
@@ -104,7 +104,7 @@ export const Block = {
 
         if (containLength)
             if (isJustValues) {
-                UVarInt32.write.call(this, objectKeys.size)
+                Uint.write.call(this, objectKeys.size)
             } else this.write(0)
         if (key) Value.write.call(this, key)
 
@@ -162,9 +162,19 @@ export const Block = {
         }
     },
     read(this: ReadContext) {
-        const index = UVarInt32.read.call(this) as number
+        const index = Uint.read.call(this) as number
 
-        let schema = this.schema.getSchema(index)
+        let schema
+        try {
+            schema = this.schema.getSchema(index)
+        } catch (e) {
+            let str = ""
+            this.buffer
+                .slice(this.offset - 10, this.offset + 9)
+                .map((e) => void (str += e.toString(16) + " "))
+            console.log(str)
+            throw e
+        }
 
         const isArray = schema.isArray
         const isMap = schema.isMap
@@ -202,12 +212,12 @@ export const Block = {
             }
             //  If it contains only values, we read their length and write them to the array
             if (justValues) {
-                const length = UVarInt32.read.call(this)
+                const length = Uint.read.call(this)
 
                 for (let i = 0; i < length; i++)
                     this.stack.pushValue(Value.read.call(this))
 
-                const nextIndex = UVarInt32.peek.call(this)
+                const nextIndex = Uint.peek.call(this)
                 const nextSchema = this.schema.getSchema(nextIndex)
                 this.stack.exit(schema.nestingDepth - nextSchema.nestingDepth)
 
@@ -221,7 +231,7 @@ export const Block = {
             if (!this.stack.isEqualsIndexes(index))
                 this.stack.enterMap(index, schema.key)
             if (this.peek() !== 0) {
-                const length = UVarInt32.read.call(this)
+                const length = Uint.read.call(this)
 
                 for (let i = 0; i < length; i++)
                     this.stack.setField(

@@ -1,54 +1,75 @@
 import ieee754 from "ieee754"
+import * as varint from "../util/varint"
 import { TypeByte } from "../types"
-import { Context } from "./context"
+import { Context, ReadContext } from "./context"
 import { DeserializationError, SerializationError } from "../errors"
 
 const BIG_INT_ZERO = BigInt(0)
-const BIG_INT_ONE = BigInt(1)
-const BIG_INT_TWO = BigInt(2)
 const BIG_INT_SEVEN = BigInt(7)
 const BIG_INT_NEXT = BigInt(0x80)
 const BIG_INT_ENDIAN = BigInt(0x7f)
 const BIG_INT_LENGTH = 19
 
-const INT_32_MIN = -(2 ** 32 / 2)
-const INT_32_MAX = 2 ** 32 / 2
-const UINT_32_MAX = 2 ** 32
-const INT_32_LENGTH = 5
+// For writing UVarInt32 in single type byte
+const UINT_64_ADDITIONAL_MIN = 0x10
+const UINT_64_ADDITIONAL_MAX = 0x87
+// For writing length of string in single type byte
+const STRING_LENGTH_ADDITIONAL_MIN = 0x88
+const STRING_LENGTH_ADDITIONAL_MAX = 0xff
 
-const INT_64_MIN = Number.MIN_SAFE_INTEGER
-const INT_64_MAX = Number.MAX_SAFE_INTEGER
+//7
 
 const BIG_INT_MAX = 2 ** 128
 
 export const Value = {
     read(this: Context) {
         const type = this.read()
+
         switch (type) {
             case TypeByte.True:
                 return true
             case TypeByte.False:
                 return false
-            case TypeByte.VarInt32:
-                return VarInt32.read.call(this)
-            case TypeByte.VarInt64:
-                return VarInt64.read.call(this)
-            case TypeByte.UVarInt32:
-                return UVarInt32.read.call(this)
-            case TypeByte.UVarInt64:
-                return UVarInt64.read.call(this)
-            case TypeByte.VarIntBN:
-                const sign = this.read()
-                const val = VarIntBN.read.call(this)
-                return sign ? -val : val
-            case TypeByte.FloatIEEE:
-                return FloatIEEE.read.call(this)
+            case TypeByte.Int:
+                return Int.read.call(this)
+            case TypeByte.Int128:
+                return Int128.read.call(this)
+            case TypeByte.NInt128:
+                return -Int128.read.call(this)
+            case TypeByte.Float:
+                return Float.read.call(this)
+            case TypeByte.Double:
+                return Double.read.call(this)
             case TypeByte.FloatFE:
                 return FloatFE.read.call(this)
-            case TypeByte.String:
-                return Str.read.call(this)
+            case TypeByte.NFloatFE:
+                return -FloatFE.read.call(this)
             default:
-                throw new DeserializationError("Unsupported data type " + type)
+                if (
+                    NumberType.inRange(
+                        type,
+                        UINT_64_ADDITIONAL_MIN,
+                        UINT_64_ADDITIONAL_MAX
+                    )
+                ) {
+                    return NumberType.read.call(
+                        this,
+                        type,
+                        UINT_64_ADDITIONAL_MIN,
+                        UINT_64_ADDITIONAL_MAX
+                    )
+                }
+                if (
+                    NumberType.inRange(
+                        type,
+                        STRING_LENGTH_ADDITIONAL_MIN,
+                        STRING_LENGTH_ADDITIONAL_MAX
+                    )
+                )
+                    return Str.read.call(this, type)
+                throw new DeserializationError(
+                    "Unsupported data type " + type.toString(16)
+                )
         }
     },
     write(this: Context, value: unknown) {
@@ -57,52 +78,53 @@ export const Value = {
                 this.write(value ? TypeByte.True : TypeByte.False)
                 return
             case "number":
-                if (value > INT_64_MAX || value < INT_64_MIN)
+                if (
+                    value > Number.MAX_SAFE_INTEGER ||
+                    value < Number.MIN_SAFE_INTEGER / 2
+                )
                     throw new SerializationError(
-                        "Number outside 64 bits, value " + value
+                        "Number outside of range " + value
                     )
 
                 if (!Number.isInteger(value)) {
-                    this.write(TypeByte.FloatIEEE)
-                    FloatIEEE.write.call(this, value)
-                    return
-                }
-
-                if (value >= 0) {
-                    if (value < UINT_32_MAX) {
-                        this.write(TypeByte.UVarInt32)
-                        UVarInt32.write.call(this, value)
+                    if (FloatFE.test(value)) {
+                        this.write(
+                            value < 0 ? TypeByte.NFloatFE : TypeByte.FloatFE
+                        )
+                        FloatFE.write.call(this, value < 0 ? -value : value)
                     } else {
-                        this.write(TypeByte.UVarInt64)
-                        UVarInt64.write.call(this, value)
+                        this.write(TypeByte.Double)
+                        Double.write.call(this, value)
                     }
                     return
                 }
 
-                if (value > INT_32_MIN && value < INT_32_MAX) {
-                    this.write(TypeByte.VarInt32)
-                    VarInt32.write.call(this, value)
+                if (value >= 0) {
+                    NumberType.write.call(
+                        this,
+                        value,
+                        UINT_64_ADDITIONAL_MIN,
+                        UINT_64_ADDITIONAL_MAX
+                    )
                     return
-                } else {
-                    this.write(TypeByte.VarInt64)
-                    VarInt64.write.call(this, value)
                 }
+
+                this.write(TypeByte.Int)
+                Int.write.call(this, value)
                 return
             case "bigint":
                 if (value > BIG_INT_MAX || value < -BIG_INT_MAX)
                     throw new SerializationError(
-                        "BigInt outside 128 bits, value " + value
+                        "BigInt outside of range 128 bits, value " + value
                     )
 
-                this.write(TypeByte.VarIntBN)
-                this.write(value < 0 ? 1 : 0)
-                VarIntBN.write.call(
+                this.write(value < 0 ? TypeByte.NInt128 : TypeByte.Int128)
+                Int128.write.call(
                     this,
                     value < 0 ? -BigInt(value) : BigInt(value)
                 )
                 return
             case "string":
-                this.write(TypeByte.String)
                 Str.write.call(this, value)
                 return
             case "object":
@@ -121,88 +143,58 @@ export const Value = {
 }
 
 /**
- * Encoding Int to VarInt
- *
- * Limitations: signed Int32
+ * LEB128 int limited to Number
  */
-const VarInt32 = {
+const Int = {
     read(this: Context) {
-        return zigzag.decode(UVarInt32.read.call(this))
+        return zigzag.decode(Uint.read.call(this))
     },
     write(this: Context, value: number) {
-        UVarInt32.write.call(this, zigzag.encode(value))
+        Uint.write.call(this, zigzag.encode(value))
     }
 }
 
 /**
- * Encoding Int to VarInt
- *
- * Limitations: unsigned Int32
+ * LEB128 int limited to Number
  */
-export const UVarInt32 = {
+export const Uint = {
     read(this: Context) {
-        let result = 0,
-            shift = 0,
-            b
-
-        do {
-            b = this.buffer[this.offset++]
-            result += (b & 0x7f) << shift
-            shift += 7
-        } while (b >= 0x80)
-
-        return result >>> 0
+        const [value, read] = varint.decode(this.buffer, this.offset)
+        this.offset += read
+        return value
     },
     write(this: Context, value: number) {
-        this.ensure(INT_32_LENGTH)
-
-        while (value > 0x7f) {
-            this.buffer[this.offset++] = (value & 0x7f) | 0x80
-            value >>>= 7
-        }
-
-        this.buffer[this.offset++] = value
+        this.ensure(11)
+        this.offset += varint.encode(value, this.buffer, this.offset)
     },
     peek(this: Context) {
-        let result = 0,
-            shift = 0,
-            b,
-            o = this.offset + 0
-
-        do {
-            b = this.buffer[o++]
-            result += (b & 0x7f) << shift
-            shift += 7
-        } while (b >= 0x80)
-
-        return result >>> 0
+        return varint.decode(this.buffer, this.offset)[0]
     }
 }
 
 /**
- * Encoding Int64 to VarInt
- *
- * Limitations: signed Int64
+ * Combines type with number.
  */
-const VarInt64 = {
-    read(this: Context) {
-        return Number(zigzagBN.decode(VarIntBN.read.call(this)))
+const NumberType = {
+    read(this: ReadContext, type: number, min: number, max: number) {
+        const range = max - min
+        if (type >= min && type < max) {
+            return type - min
+        } else if (type === max) {
+            return Uint.read.call(this) + range
+        }
     },
-    write(this: Context, value: number) {
-        VarIntBN.write.call(this, zigzagBN.encode(BigInt(value)))
-    }
-}
-
-/**
- * Encoding Int64 to VarInt
- * Limitations: unsigned Int64
- */
-const UVarInt64 = {
-    read(this: Context) {
-        return Number(VarIntBN.read.call(this))
+    write(this: ReadContext, value: number, min: number, max: number) {
+        const range = max - min
+        if (value < range) {
+            this.write(value + min)
+        } else {
+            this.write(max)
+            Uint.write.call(this, value - range)
+        }
     },
-    write(this: Context, value: number) {
-        VarIntBN.write.call(this, BigInt(value))
+    inRange(value: number, min: number, max: number) {
+        return value >= min && value <= max
     }
 }
 
@@ -213,7 +205,7 @@ const UVarInt64 = {
  *
  * Sign stores at start of VarInt.
  */
-const VarIntBN = {
+const Int128 = {
     read(this: Context) {
         let result = BIG_INT_ZERO,
             shift = BIG_INT_ZERO,
@@ -245,43 +237,64 @@ const VarIntBN = {
  */
 const FloatFE = {
     read(this: Context) {
-        const numerator = UVarInt64.read.call(this)
+        const numerator = Uint.read.call(this)
         const denominator = this.buffer[this.offset++]
         return numerator / 10 ** denominator
     },
     write(this: Context, value: number) {
-        const integer = Math.floor(value)
-        let fraction = value - integer
+        let denominator = 0
+        let scaled = value
 
-        let low = 0
-        let high = 15
-        let decimals = 0
-
-        while (low <= high) {
-            const mid = Math.floor((low + high) / 2)
-            const scaled = value * 10 ** mid
-            if (scaled % 1 === 0) {
-                decimals = mid
-                high = mid - 1
-            } else {
-                low = mid + 1
-            }
+        // Максимум 15 знаков после запятой
+        while (denominator < 15 && scaled % 1 !== 0) {
+            scaled *= 10
+            denominator++
         }
 
-        const denominator = 10 ** decimals
+        const numerator = Math.round(scaled)
 
-        const numerator =
-            integer * denominator + Math.floor(fraction * denominator)
+        if (numerator > Number.MAX_SAFE_INTEGER) {
+            throw new SerializationError(
+                "FloatFE outside of safe integer " + value
+            )
+        }
 
-        UVarInt64.write.call(this, numerator)
-        this.buffer[this.offset++] = decimals & 0xff
+        Uint.write.call(this, numerator)
+        this.buffer[this.offset++] = denominator & 0xff
+    },
+    test(value: number): boolean {
+        let denominator = 0
+        let scaled = value
+
+        while (denominator < 15 && scaled % 1 !== 0) {
+            scaled *= 10
+            denominator++
+        }
+
+        const numerator = Math.round(scaled)
+        return Number.isSafeInteger(numerator)
     }
 }
 
 /**
- * IEEE754 Encoding
+ * IEEE754 Encoding of float
  */
-const FloatIEEE = {
+const Float = {
+    read(this: Context) {
+        const result = ieee754.read(this.buffer, this.offset, false, 21, 4)
+        this.offset += 8
+        return result
+    },
+    write(this: Context, value: number) {
+        ieee754.write(this.buffer, value, this.offset, false, 21, 4)
+        this.offset += 8
+    }
+}
+
+/**
+ * IEEE754 Encoding of double
+ */
+const Double = {
     read(this: Context) {
         const result = ieee754.read(this.buffer, this.offset, false, 54, 8)
         this.offset += 8
@@ -299,11 +312,19 @@ const FloatIEEE = {
 // Realization of fast encoding and decoding for string taken from protobuf.js.
 // https://github.com/protobufjs/protobuf.js/blob/master/lib/utf8/index.js
 const Str = {
-    read(this: Context) {
-        let length = UVarInt32.read.call(this)
+    read(this: Context, type: number) {
+        let length = NumberType.read.call(
+            this,
+            type,
+            STRING_LENGTH_ADDITIONAL_MIN,
+            STRING_LENGTH_ADDITIONAL_MAX
+        )
+
         if (length <= 0) return ""
 
         const end = this.offset + length
+
+        console.log(length, type.toString(16))
 
         var str = ""
         for (; this.offset < end; ) {
@@ -343,7 +364,12 @@ const Str = {
 
         const len = Str._len(value)
 
-        UVarInt32.write.call(this, len)
+        NumberType.write.call(
+            this,
+            len,
+            STRING_LENGTH_ADDITIONAL_MIN,
+            STRING_LENGTH_ADDITIONAL_MAX
+        )
         this.ensure(len)
 
         var c1, // character 1
@@ -396,7 +422,7 @@ export const Empty = {
         if (count === 1) this.write(TypeByte.Empty)
         else {
             this.write(TypeByte.EmptyCount)
-            UVarInt32.write.call(this, count)
+            Uint.write.call(this, count)
         }
     },
     read(this: Context) {
@@ -405,7 +431,7 @@ export const Empty = {
             case TypeByte.Empty:
                 return 1
             case TypeByte.EmptyCount:
-                return UVarInt32.read.call(this)
+                return Uint.read.call(this)
             default:
                 throw new DeserializationError(
                     "An unexpected type when reading emptiness, type " + header
@@ -424,18 +450,5 @@ const zigzag = {
     },
     decode(val: number) {
         return val % 2 === 1 ? -(val + 1) / 2 : val / 2
-    }
-}
-
-const zigzagBN = {
-    encode(val: bigint) {
-        return val < 0
-            ? (-val << BIG_INT_ONE) - BIG_INT_ONE
-            : val << BIG_INT_ONE
-    },
-    decode(val: bigint) {
-        return val % BIG_INT_TWO === BIG_INT_ONE
-            ? -(val + BIG_INT_ONE) / BIG_INT_TWO
-            : val / BIG_INT_TWO
     }
 }
