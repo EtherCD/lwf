@@ -17,35 +17,45 @@ Syntax:
 1. `|` - Byte separator
 1. `[ ]` - Repeating block
 1. `#` - Comments
+1. `...` - Subsequent data of any length
 
 Keywords:
 
 1. `index` - Specifies an index written via varint32
-1. `hb` - The byte that indicates the type of data that follows it
+1. `tb` - The byte that indicates the type of data that follows it
 
 The following pseudo syntax entry will be an example. It is read as, the index heading byte, and repeated N times, the value data type heading block - value
 
 ```lwfp
-| index [| hb | value |]
+| index [| tb | value |]
 ```
 
 ## Data Types
 
+Format uses type byte. The type byte is a byte that explicitly indicates the data type itself after
+
+Example in pseudo-syntax
+
+```lwfp
+| tb | ...value |
+```
+
 ### Integer
 
-In the format, all numbers are either uin64 or int64. For compactness of recording, LEB128 (Little Endian Base 128) encoding is used. Also in the format there is a 128-bit version of Int
+The format uses the LEB128 (Little Endian Base 128) number encoding method, but with a modification in the form of a compact VarInt. The essence of the modification is that the byte will begin with the value of the previous byte, which allows you to expand the boundaries of the number. In two bytes with this modification, you can write **16,511** values, versus **16,383**
 
 To record signed numbers, zigzag encoding is used, it consistently holds the negative value first, the positive value second. Example of values ​​in ascending order: 0, -1, 1, -2, 2.
 
-| HeadByte | Type    | Bit depth        |
-| -------- | ------- | ---------------- |
-| 00       | Int64   | signed 64bits    |
-| 01       | Int128  | positive 128bits |
-| 02       | NInt128 | negative 128bits |
+To compactly record numbers greater than 64 bits, the type byte indicates whether it is a positive number or a negative number.
 
-Since zigzag encoding is not suitable for a 128-bit number, since it is in particular unlimited, therefore it is not worth multiplying it by 2, the record will become even more huge. There are 2 types in the format that describe the sign for this number.
+| TypeByte | Type     | Bit depth                 |
+| -------- | -------- | ------------------------- |
+| 00       | Int      | signed 64bits             |
+| 01       | Uint128  | positive unsigned 128bits |
+| 02       | NUint128 | negative unsigned 128bits |
+| 10> 87<  | NUint128 | negative unsigned 128bits |
 
-Unsigned integers are represented in an even more compact notation. For this purpose, space is allocated in the type byte for these numbers, starting with **0x10** and ending with **0x87**, the last number will automatically indicate that the following bytes will be UInt, minus the number written in the byte.
+Unsigned 64-bit numbers are written in a more compact way. The number is written in TypeByte, for this purpose there are intervals in the entire typing, the interval for this number is **10** - **87** in hexdecimal. The maximum value that can be written is 119 or **87** in the typing, and this very value indicates that after there will be an expanding varint
 
 Example of encoding UInt
 
@@ -58,24 +68,24 @@ Example of encoding UInt
 
 ### Float and Double
 
-The format contains 4 types responsible for fractional numbers, two of which are **float** and **double**, or 32-bit and 64-bit. The other two are fractions written according to the principle of conversion into a rational fraction. The limitations for such a breakdown are the 64-bit number into which the fraction will turn.
+The format contains 4 types responsible for fractional numbers, two of which are **float** and **double**, or 32-bit and 64-bit. The other two are fractions written according to the principle of transformation into a rational fraction. These types are present for a more compact recording of fractions, if possible. The limit at which such a number becomes ineffective is `2 ** (7 * 7)` or `5629499534213122`. Inefficient recording is considered to be the total length of the numbers being written, for float and dobule this is 4 and 8 bytes respectively. For Fraction Encoding this is less than or equal to 8 bytes.
 
-| HeadByte | Type     | Description                         | Pseudo-syntax                                               |
+| TypeByte | Type     | Description                         | Pseudo-syntax                                               |
 | -------- | -------- | ----------------------------------- | ----------------------------------------------------------- |
-| 03       | Float    | Float (IEEE754 4 bit) or 32bit      | \| hb \| 4 bytes \|                                         |
-| 04       | Double   | Double (IEEE754 8 bit) or 64bit     | \| hb \| 8 bytes \|                                         |
-| 05       | FloatFE  | Positive fraction Encoding of float | \| hb \| numerator in varint \| denominator is pow of 10 \| |
-| 06       | NFloatFE | Negative fraction Encoding of float | \| hb \| numerator in varint \| denominator is pow of 10 \| |
+| 03       | Float    | Float (IEEE754 4 bit) or 32bit      | \| tb \| 4 bytes \|                                         |
+| 04       | Double   | Double (IEEE754 8 bit) or 64bit     | \| tb \| 8 bytes \|                                         |
+| 05       | FloatFE  | Positive fraction Encoding of float | \| tb \| numerator in varint \| denominator is pow of 10 \| |
+| 06       | NFloatFE | Negative fraction Encoding of float | \| tb \| numerator in varint \| denominator is pow of 10 \| |
 
 Example of a FloatFE entry: 127.123 = `| 05 | 127123 | 3 |`
 
 ### Booleans and Strings, Null
 
-Strings are encoded in utf-8 format, their length is written according to the Uint principle, as well as the allocated bytes in the type byte, starting with `0x88` and ending with `0xFF`. These bytes are both pointers that this is a string, and at the same time to the length. As soon as the number becomes `0xFF`, then this indicates that the length continues as a varint, minus the number that is written in the type
+Strings are encoded in utf-8 format, their length is written as a UInt number, only with an interval starting from `0x88` and ending with `0xFF`. The principle of operation is the same, 0x88 is the beginning of the interval and is interpreted as 0, 0xFF is the end and equals 119, and at the same time indicates that there should be a varint next, for the expansion of the value.
 
 Next are simple data types
 
-| HeadByte | Type         |
+| TypeByte | Type         |
 | -------- | ------------ |
 | 07       | bool - false |
 | 08       | bool - true  |
@@ -85,10 +95,10 @@ Next are simple data types
 
 Data types responsible for skipping them.
 
-| HeadByte | Type        | Description             | Pseudo-syntax                  |
+| TypeByte | Type        | Description             | Pseudo-syntax                  |
 | -------- | ----------- | ----------------------- | ------------------------------ |
-| 0e       | empty       | Single empty field      | \| hb \|                       |
-| 0f       | empty count | Empty for number values | \| hb \| count in uvarint32 \| |
+| 0e       | empty       | Single empty field      | \| tb \|                       |
+| 0f       | empty count | Empty for number values | \| tb \| count in uvarint32 \| |
 
 Used to indicate gaps in a chunk, since a chunk encodes the values ​​of only those fields that are specified in the scheme, missing values ​​must be replaced with gaps. Otherwise, reading that relies on the length of fields in the scheme will stop reading correctly.
 
@@ -147,7 +157,7 @@ Example array-like object:
 The main data structure of the format, it looks like this in pseudo syntax, to represent an object with fields
 
 ```lwfp
-| index [| hb | value |]
+| index [| tb | value |]
 ```
 
 The principle of writing chunks is based on the fact that nested objects are broken down one by one and written in order. Example of writing chunks into chunks, nested structure
@@ -169,7 +179,7 @@ The principle of writing chunks is based on the fact that nested objects are bro
 Writing arrays in pseudocode looks like this:
 
 ```lwfp
-| index | length in uvarint32 [| hb | value |]
+| index | length in uvarint32 [| tb | value |]
 ```
 
 The length field is intended to indicate that subsequent values ​​should not be processed by the scheme, and will be added to the array as is. This field is 0 when encoding an object, and the length of all values ​​when encoding values
@@ -181,9 +191,9 @@ Example of array encoding:
 ```
 
 ```lwfp
-| index | length = 2 | hb uint32 | 127 | hb uint32 | 20 |
-| index | length = 0 | hb string | bar |
-| index | length = 1 | hb uint32 | 128 |
+| index | length = 2 | tb uint32 | 127 | tb uint32 | 20 |
+| index | length = 0 | tb string | bar |
+| index | length = 1 | tb uint32 | 128 |
 ```
 
 ### Array-like objects
@@ -191,9 +201,9 @@ Example of array encoding:
 Writing arrays-like objects in pseudocode looks like this:
 
 ```lwfp
-| index | length uint32 | hb of key | key [| hb | value |]
+| index | length uint32 | tb of key | key [| tb | value |]
 # for length <0
-| index | length uint32 [| hb of key | key | hb | value |]
+| index | length uint32 [| tb of key | key | tb | value |]
 ```
 
 Here the key is the field by which the object or value will be written, an example in pseudocode of object encoding
@@ -203,9 +213,9 @@ Here the key is the field by which the object or value will be written, an examp
 ```
 
 ```lwfp
-| index | length = 2 | hb string | "1" | hb uint32 | 127 | hb string | "2" | hb uint32 | 20 |
-| index | length = 0 | hb string | "3" | hb string | "bar" |
-| index | length = 1 | hb string | "4" | hb uint32 | 128 |
+| index | length = 2 | tb string | "1" | tb uint32 | 127 | tb string | "2" | tb uint32 | 20 |
+| index | length = 0 | tb string | "3" | tb string | "bar" |
+| index | length = 1 | tb string | "4" | tb uint32 | 128 |
 ```
 
 That's all the specification at the moment.

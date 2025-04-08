@@ -8,7 +8,7 @@ BigInt numbers are limited to 128 bits
 
 ## Schema
 
-To create a scheme, we need to create an instance of the `Schema` class.
+To create a scheme create an instance of the `Schema` class.
 
 Example code:
 
@@ -26,7 +26,7 @@ The main thing to remember is that fields not specified in the schema will not b
 
 Since this is the first element of the diagram, it writes the root element itself.
 
-```json
+```jsonc
 {
     // Any key name by which you will organize nesting
     "a": {
@@ -43,7 +43,7 @@ Since this is the first element of the diagram, it writes the root element itsel
 
 Since the fields in the schema only describe values, not objects, we need to add a second schema with any absolute name, and point to it with the `nested` field.
 
-```json
+```jsonc
 {
     "a": {
         "fields": ["name"],
@@ -71,7 +71,7 @@ Just like with `simple values`, the library will not write the object, but skip 
 
 To describe an array, we need to keep in mind that if we specify that it is an array, then the diagram describes the values ​​of the array, not the array itself. In addition to `key`, the array itself will be written to the main object.
 
-```json
+```jsonc
 {
     "a": {
         "nested": ["users"]
@@ -93,7 +93,7 @@ To describe an array, we need to keep in mind that if we specify that it is an a
 
 We can also make the root object an array.
 
-```json
+```jsonc
 {
     "a": {
         "isArray": true,
@@ -115,7 +115,7 @@ An array-like object is a data structure that behaves like an array: it has orde
 
 To describe an array-like object, we need to specify `isMap` in the schema.
 
-```json
+```jsonc
 {
     "a": {
         "isMap": true,

@@ -10,13 +10,13 @@ export class SchemaError extends Error {
     }
 }
 
-export class SerializationError extends Error {
+export class EncodeError extends Error {
     constructor(message: string) {
         super(message)
     }
 }
 
-export class DeserializationError extends Error {
+export class DecodeError extends Error {
     constructor(message: string) {
         super(message)
     }

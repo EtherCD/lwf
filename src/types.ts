@@ -52,8 +52,8 @@ export type GenericSchemaValues = string
  */
 export enum TypeByte {
     Int = 0x00,
-    Int128,
-    NInt128,
+    Uint128,
+    NUint128,
     Float,
     Double,
     FloatFE,

@@ -35,7 +35,7 @@ For example how to write schemas
 
 ### Usage example
 
-For a more precise understanding of how to use, again, look at the [guide](./docs/Basics-en.md)
+For a more precise understanding of how to use, again, look at the [guide](./docs/Usage.md)
 
 ```ts
 import lwf from "lwf"
@@ -57,9 +57,9 @@ const object = [
 ]
 
 // Returns UInt8Array
-const buffer = lwf.serialize(object, schema)
+const buffer = lwf.encode(object, schema)
 // Returns object or array
-const array = lwf.deserialize(result, schema)
+const array = lwf.decode(result, schema)
 ```
 
 ## Performance

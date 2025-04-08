@@ -1,10 +1,10 @@
-import { SerializationError } from "../errors"
+import { EncodeError } from "../errors"
 import { SchemaValue, WriteStackValue } from "../types"
 import { ReadContext, WriteContext } from "./context"
 import { Empty, Uint, Value } from "./vars"
 
 export const Block = {
-    write(this: WriteContext, element: WriteStackValue) {
+    encode(this: WriteContext, element: WriteStackValue) {
         const index = element[1] !== null ? element[1] : 0
         const schema = this.schema.getSchema(index)
 
@@ -17,7 +17,7 @@ export const Block = {
             let values: Array<unknown> = object as Array<unknown>
 
             if (!schema.isArray)
-                throw new SerializationError(
+                throw new EncodeError(
                     "Unexpected handling of an object or value instead of an array, key " +
                         schema.key
                 )
@@ -26,10 +26,10 @@ export const Block = {
 
             // If the current list consists only of simple values, we write
             if (isJustValues) {
-                Uint.write.call(this, index)
-                Uint.write.call(this, values.length)
+                Uint.encode.call(this, index)
+                Uint.encode.call(this, values.length)
                 for (let i = values.length - 1; i >= 0; i--)
-                    Value.write.call(this, values[i])
+                    Value.encode.call(this, values[i])
                 return
             }
 
@@ -51,7 +51,7 @@ export const Block = {
                         if (!buf) buf = [val]
                         else buf.push(val)
                     }
-                else Value.write.call(this, val)
+                else Value.encode.call(this, val)
             }
 
             if (buf) this.stack.add(buf, index, true)
@@ -61,12 +61,12 @@ export const Block = {
             const keys = Object.keys(object)
 
             if (isJustValues) {
-                Uint.write.call(this, index)
-                Uint.write.call(this, keys.length)
+                Uint.encode.call(this, index)
+                Uint.encode.call(this, keys.length)
                 for (let i = keys.length - 1; i >= 0; i--) {
                     const key = keys[i]
-                    Value.write.call(this, key)
-                    Value.write.call(this, object[key])
+                    Value.encode.call(this, key)
+                    Value.encode.call(this, object[key])
                 }
                 return
             }
@@ -95,7 +95,7 @@ export const Block = {
             return
         }
 
-        Uint.write.call(this, index)
+        Uint.encode.call(this, index)
 
         const fields = schema.fields
         const objects = schema.nestedK
@@ -104,9 +104,9 @@ export const Block = {
 
         if (containLength)
             if (isJustValues) {
-                Uint.write.call(this, objectKeys.size)
+                Uint.encode.call(this, objectKeys.size)
             } else this.write(0)
-        if (key) Value.write.call(this, key)
+        if (key) Value.encode.call(this, key)
 
         let a = 0
 
@@ -118,10 +118,10 @@ export const Block = {
                     const value = object[field]
 
                     if (typeof value === "object" && value !== null) {
-                        throw new SerializationError(
+                        throw new EncodeError(
                             "Unexpected use of object in list `fields` schema"
                         )
-                    } else Value.write.call(this, value)
+                    } else Value.encode.call(this, value)
 
                     a++
                     continue
@@ -135,7 +135,7 @@ export const Block = {
                     count++
                 }
 
-                Empty.write.call(this, count)
+                Empty.encode.call(this, count)
 
                 a += count
             }
@@ -153,7 +153,7 @@ export const Block = {
                 if (typeof value === "object" && value !== null) {
                     this.stack.add(value, schema.nestedI[a])
                 } else
-                    throw new SerializationError(
+                    throw new EncodeError(
                         "Unexpected use of non-Object value in `nested` schema"
                     )
             }
@@ -161,8 +161,8 @@ export const Block = {
             a--
         }
     },
-    read(this: ReadContext) {
-        const index = Uint.read.call(this) as number
+    decode(this: ReadContext) {
+        const index = Uint.decode.call(this) as number
 
         let schema
         try {
@@ -212,10 +212,10 @@ export const Block = {
             }
             //  If it contains only values, we read their length and write them to the array
             if (justValues) {
-                const length = Uint.read.call(this)
+                const length = Uint.decode.call(this)
 
                 for (let i = 0; i < length; i++)
-                    this.stack.pushValue(Value.read.call(this))
+                    this.stack.pushValue(Value.decode.call(this))
 
                 const nextIndex = Uint.peek.call(this)
                 const nextSchema = this.schema.getSchema(nextIndex)
@@ -231,17 +231,17 @@ export const Block = {
             if (!this.stack.isEqualsIndexes(index))
                 this.stack.enterMap(index, schema.key)
             if (this.peek() !== 0) {
-                const length = Uint.read.call(this)
+                const length = Uint.decode.call(this)
 
                 for (let i = 0; i < length; i++)
                     this.stack.setField(
-                        Value.read.call(this),
-                        Value.read.call(this)
+                        Value.decode.call(this),
+                        Value.decode.call(this)
                     )
                 return
             } else {
                 this.read()
-                const key = Value.read.call(this)
+                const key = Value.decode.call(this)
                 this.stack.enterObject(key)
             }
         } else {
@@ -256,12 +256,12 @@ export const Block = {
                 let field = fields[a]
 
                 if (Empty.check.call(this)) {
-                    const count = Empty.read.call(this)
+                    const count = Empty.decode.call(this)
                     a += count
                     continue
                 }
 
-                this.stack.setField(field, Value.read.call(this))
+                this.stack.setField(field, Value.decode.call(this))
 
                 a++
             }

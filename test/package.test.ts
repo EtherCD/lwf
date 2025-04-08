@@ -1,16 +1,14 @@
 import { deepStrictEqual, strictEqual } from "assert"
 import lwf from "../src"
 
-test("Test sizes of serialized data", () => {
-    const binaryData = lwf.serialize(object, schema)
+test("Test encoding large first package from game server", () => {
+    const binaryData = lwf.encode(object, schema)
     const jsonData = JSON.stringify(object)
 
     console.log("Size in json: " + Math.round(jsonData.length / 10.24) / 100)
     console.log("Size in lwfb: " + Math.round(binaryData.length / 10.24) / 100)
 
-    console.log(binaryData)
-
-    const out = lwf.deserialize(binaryData, schema)
+    const out = lwf.decode(binaryData, schema)
 
     deepStrictEqual(out, object)
 })
