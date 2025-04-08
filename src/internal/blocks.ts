@@ -2,6 +2,7 @@ import { EncodeError } from "../errors"
 import { SchemaValue, WriteStackValue } from "../types"
 import { ReadContext, WriteContext } from "./context"
 import { Empty, Uint, Value } from "./vars"
+import util from "util"
 
 export const Block = {
     encode(this: WriteContext, element: WriteStackValue) {
@@ -170,9 +171,11 @@ export const Block = {
         } catch (e) {
             let str = ""
             this.buffer
-                .slice(this.offset - 10, this.offset + 9)
+                .slice(this.offset - 20, this.offset + 19)
                 .map((e) => void (str += e.toString(16) + " "))
             console.log(str)
+            //@ts-ignore
+            console.log(util.inspect(this.stack.result, false, null, true))
             throw e
         }
 

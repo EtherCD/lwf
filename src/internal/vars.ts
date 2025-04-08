@@ -3,6 +3,7 @@ import * as varint from "../util/varint"
 import { TypeByte } from "../types"
 import { Context, ReadContext } from "./context"
 import { DecodeError, EncodeError } from "../errors"
+import util from "util"
 
 const BIG_INT_ZERO = BigInt(0)
 const BIG_INT_SEVEN = BigInt(7)
@@ -66,6 +67,16 @@ export const Value = {
                     )
                 )
                     return Str.decode.call(this, type)
+                let a = ""
+                this.buffer
+                    .slice(this.offset - 10, this.offset + 9)
+                    .forEach((v) => {
+                        a += v.toString(16) + " "
+                    })
+                console.log(a)
+                //@ts-ignore
+
+                console.log(util.inspect(this.stack.result, false, null, true))
                 throw new DecodeError(
                     "Unsupported data type " + type.toString(16)
                 )
@@ -74,6 +85,7 @@ export const Value = {
     encode(this: Context, value: unknown) {
         switch (typeof value) {
             case "boolean":
+                this.ensure(1)
                 this.write(value ? TypeByte.True : TypeByte.False)
                 return
             case "number":
@@ -175,7 +187,7 @@ export const Uint = {
 /**
  * Combines type with number.
  */
-const NumberType = {
+export const NumberType = {
     decode(this: ReadContext, type: number, min: number, max: number) {
         const range = max - min
         if (type >= min && type < max) {
@@ -186,6 +198,7 @@ const NumberType = {
     },
     encode(this: ReadContext, value: number, min: number, max: number) {
         const range = max - min
+        this.ensure(1)
         if (value < range) {
             this.write(value + min)
         } else {
@@ -279,12 +292,12 @@ const FloatFE = {
 export const Float = {
     decode(this: Context) {
         const result = ieee754.read(this.buffer, this.offset, false, 23, 4)
-        this.offset += 8
+        this.offset += 4
         return result
     },
     encode(this: Context, value: number) {
         ieee754.write(this.buffer, value, this.offset, false, 23, 4)
-        this.offset += 8
+        this.offset += 4
     }
 }
 
