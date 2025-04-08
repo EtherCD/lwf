@@ -6,6 +6,8 @@ Currently, the library cannot write arrays in arrays, nor array-likes in array-l
 
 BigInt numbers are limited to 128 bits
 
+[Issue with array and map types](https://github.com/EtherCD/lwf/issues/3)
+
 ## Schema
 
 To create a scheme create an instance of the `Schema` class.

@@ -270,6 +270,7 @@ const FloatFE = {
         }
 
         Uint.encode.call(this, numerator)
+        this.ensure(1)
         this.buffer[this.offset++] = denominator & 0xff
     },
     getRange(value: number): number {
@@ -296,6 +297,7 @@ export const Float = {
         return result
     },
     encode(this: Context, value: number) {
+        this.ensure(4)
         ieee754.write(this.buffer, value, this.offset, false, 23, 4)
         this.offset += 4
     }
@@ -311,6 +313,7 @@ const Double = {
         return result
     },
     encode(this: Context, value: number) {
+        this.ensure(8)
         ieee754.write(this.buffer, value, this.offset, false, 54, 8)
         this.offset += 8
     }
@@ -365,7 +368,6 @@ const Str = {
     },
     encode(this: Context, value: string) {
         if (value.length === 0) {
-            this.ensure(1)
             NumberType.encode.call(
                 this,
                 0,
@@ -445,6 +447,7 @@ export const Empty = {
         }
     },
     encode(this: Context, count: number) {
+        this.ensure(1)
         if (count === 1) this.write(TypeByte.Empty)
         else {
             this.write(TypeByte.EmptyCount)
