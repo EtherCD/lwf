@@ -1,8 +1,7 @@
 import { EncodeError } from "../errors"
-import { SchemaValue, WriteStackValue } from "../types"
+import { WriteStackValue } from "../types"
 import { ReadContext, WriteContext } from "./context"
 import { Empty, Uint, Value } from "./vars"
-import util from "util"
 
 export const Block = {
     encode(this: WriteContext, element: WriteStackValue) {

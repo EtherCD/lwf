@@ -14,15 +14,16 @@ export class Context {
     }
 
     /**
-     * Writes byte
-     * @param byte number
+     * Writes byte to buffer
+     * @param byte uint8
      */
     write(byte: number) {
         this.buffer[this.offset++] = byte & 0xff
     }
 
     /**
-     * Reads current byte
+     * Reads byte from buffer
+     * @returns uint8
      */
     read() {
         return this.buffer[this.offset++]
@@ -30,11 +31,16 @@ export class Context {
 
     /**
      * Peeks current byte
+     * @returns uint8
      */
     peek() {
         return this.buffer[this.offset]
     }
 
+    /**
+     * Expands the buffer if it cannot provide writing data.
+     * @param count number of bytes to write
+     */
     ensure(count: number) {
         if (this.offset + count > this.buffer.length) {
             let newBuffer = new Uint8Array(this.buffer.length * 2 + count)
@@ -59,9 +65,9 @@ export class ReadContext extends Context {
     lastSchema: SchemaValue = null
     lastIndex: number = null
 
-    constructor(buffer: Uint8Array, schema: Schema) {
+    constructor(buffer: Uint8Array | Buffer | ArrayBuffer, schema: Schema) {
         super(schema)
-        this.buffer = buffer
+        this.buffer = new Uint8Array(buffer)
         this.stack = new ReadStack(schema.getSchema(0))
     }
 }

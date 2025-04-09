@@ -4,8 +4,8 @@ import { ProcessedSchema, RawSchema, SchemaValue } from "../types"
 /**
  * Scheme for serialization and deserialization of objects.
  *
- * Should not be changed after the object is built.
- * @param raw raw Schema
+ * **Should not be changed after the object is encoded.**
+ * @param raw Your schema
  */
 export class Schema {
     private value: ProcessedSchema
@@ -18,7 +18,9 @@ export class Schema {
         const result = this.value[index]
         if (!result) {
             throw new SchemaError(
-                "Trying get not exist schema, " + index.toString(16)
+                "Trying get not exist schema, " + index.toString(16),
+                index.toString(16),
+                true
             )
         }
         return result
@@ -48,7 +50,8 @@ export class Schema {
                     const nestedIndex = indexMap.get(nestedKey)
                     if (nestedIndex === undefined) {
                         throw new SchemaError(
-                            `Trying to include non-existent schema in \`${index}\`, includes \`${nestedKey}\``
+                            `Trying to include non-existent schema in \`${index}\`, includes \`${nestedKey}\``,
+                            index
                         )
                     }
 

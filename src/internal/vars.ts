@@ -3,7 +3,6 @@ import * as varint from "../util/varint"
 import { TypeByte } from "../types"
 import { Context, ReadContext } from "./context"
 import { DecodeError, EncodeError } from "../errors"
-import util from "util"
 
 const BIG_INT_ZERO = BigInt(0)
 const BIG_INT_SEVEN = BigInt(7)
@@ -11,17 +10,25 @@ const BIG_INT_NEXT = BigInt(0x80)
 const BIG_INT_ENDIAN = BigInt(0x7f)
 const BIG_INT_LENGTH = 19
 const BIG_INT_MAX = 2 ** 128
+const UINT_LENGTH_MAX = 11
 
+/**
+ * The threshold at which encoding using Fraction Encoding becomes ineffective (more than 8 bytes)
+ */
 const FRACTION_ENCODING_LIMIT = 2 ** (7 * 7) // 562_949_953_421_312_2
 
-// For writing UVarInt32 in single type byte
+// Range in byte type in which additional values ​​can be encoded
 const UINT_64_ADDITIONAL_MIN = 0x10
 const UINT_64_ADDITIONAL_MAX = 0x87
-// For writing length of string in single type byte
 const STRING_LENGTH_ADDITIONAL_MIN = 0x88
 const STRING_LENGTH_ADDITIONAL_MAX = 0xff
 
 export const Value = {
+    /**
+     * Decode value from buffer
+     * @param this Context
+     * @returns simple value (not Object or Array)
+     */
     decode(this: Context) {
         const type = this.read()
 
@@ -73,15 +80,16 @@ export const Value = {
                     .forEach((v) => {
                         a += v.toString(16) + " "
                     })
-                console.log(a)
-                //@ts-ignore
-
-                console.log(util.inspect(this.stack.result, false, null, true))
                 throw new DecodeError(
                     "Unsupported data type " + type.toString(16)
                 )
         }
     },
+    /**
+     * Encodes value
+     * @param this context
+     * @param value simple value (not Object or Array)
+     */
     encode(this: Context, value: unknown) {
         switch (typeof value) {
             case "boolean":
@@ -96,12 +104,24 @@ export const Value = {
                     throw new EncodeError("Number outside of range " + value)
 
                 if (!Number.isInteger(value)) {
-                    const range = FloatFE.getRange(value)
-                    if (range <= FRACTION_ENCODING_LIMIT) {
+                    const positiveVal = Math.abs(value)
+                    const range = FloatFE.getRange(positiveVal)
+                    const numerator = Math.floor(range)
+                    const denominator = Math.floor((range % 1) * 10)
+                    this.ensure(1)
+                    if (
+                        numerator !== -1 &&
+                        numerator <= FRACTION_ENCODING_LIMIT
+                    ) {
                         this.write(
                             value < 0 ? TypeByte.NFloatFE : TypeByte.FloatFE
                         )
-                        FloatFE.encode.call(this, value < 0 ? -value : value)
+                        FloatFE.encode.call(
+                            this,
+                            positiveVal,
+                            numerator,
+                            denominator
+                        )
                     } else {
                         this.write(TypeByte.Double)
                         Double.encode.call(this, value)
@@ -121,6 +141,7 @@ export const Value = {
 
                 if (value < Number.MIN_SAFE_INTEGER / 2)
                     throw new EncodeError("Number outside of range " + value)
+                this.ensure(1)
                 this.write(TypeByte.Int)
                 Int.encode.call(this, value)
                 return
@@ -155,7 +176,7 @@ export const Value = {
 }
 
 /**
- * LEB128 int limited to Number
+ * varint int limited to Number
  */
 const Int = {
     decode(this: Context) {
@@ -167,7 +188,7 @@ const Int = {
 }
 
 /**
- * LEB128 int limited to Number
+ * varint int limited to Number
  */
 export const Uint = {
     decode(this: Context) {
@@ -176,7 +197,7 @@ export const Uint = {
         return value
     },
     encode(this: Context, value: number) {
-        this.ensure(11)
+        this.ensure(UINT_LENGTH_MAX)
         this.offset += varint.encode(value, this.buffer, this.offset)
     },
     peek(this: Context) {
@@ -215,8 +236,6 @@ export const NumberType = {
  * Encoding BigInt in VarInt format
  *
  * Limitations: unsigned 128bit
- *
- * Sign stores at start of VarInt.
  */
 const Uint128 = {
     decode(this: Context) {
@@ -245,8 +264,11 @@ const Uint128 = {
 }
 
 /**
- * Fraction Encoding for float
- * Limitations: The total length of numbers must not exceed 17 digits.
+ * More compact than double, uses if double encoding too long in bytes
+ *
+ * Effective coding is only possible if number <= 562_949_953_421_312_2
+ *
+ * Then it takes a smaller or identical form with double the size.
  */
 const FloatFE = {
     decode(this: Context) {
@@ -254,21 +276,12 @@ const FloatFE = {
         const denominator = this.buffer[this.offset++]
         return numerator / 10 ** denominator
     },
-    encode(this: Context, value: number) {
-        let denominator = 0
-        let scaled = value
-
-        while (denominator < 15 && scaled % 1 !== 0) {
-            scaled *= 10
-            denominator++
-        }
-
-        const numerator = Math.round(scaled)
-
-        if (numerator > Number.MAX_SAFE_INTEGER) {
-            throw new EncodeError("FloatFE outside of range " + value)
-        }
-
+    encode(
+        this: Context,
+        value: number,
+        numerator: number,
+        denominator: number
+    ) {
         Uint.encode.call(this, numerator)
         this.ensure(1)
         this.buffer[this.offset++] = denominator & 0xff
@@ -283,7 +296,7 @@ const FloatFE = {
         }
 
         const numerator = Math.round(scaled)
-        return numerator
+        return denominator === 14 ? -1 : numerator + denominator / 10
     }
 }
 

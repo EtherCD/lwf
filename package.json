@@ -16,7 +16,8 @@
     "module": "dist/index.mjs",
     "types": "dist/index.d.ts",
     "scripts": {
-        "build": "tsup src/index.ts --format esm,cjs --dts",
+        "build": "tsup src/index.ts --dts",
+        "bench": "tsx benchmark.mts",
         "test": "jest"
     },
     "dependencies": {
@@ -27,6 +28,7 @@
         "@babel/preset-typescript": "^7.26.0",
         "@types/jest": "^29.5.14",
         "jest": "^29.7.0",
+        "tinybench": "^4.0.1",
         "ts-node": "^10.9.2",
         "tsup": "^8.3.6",
         "tsx": "^4.19.3",

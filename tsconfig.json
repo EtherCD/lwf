@@ -11,8 +11,5 @@
         "allowJs": true,
         "checkJs": false
     },
-    "ts-node": {
-        "esm": true
-    },
-    "include": ["src", "test/test.test.ts"]
+    "include": ["src", "test/test.test.ts", "src/benchmark.ts"]
 }

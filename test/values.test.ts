@@ -2,23 +2,13 @@ import { ReadContext, WriteContext } from "../src/internal/context"
 import { Schema } from "../src/internal/schema"
 import { Float, Value } from "../src/internal/vars"
 import assert from "assert"
-
-const writeContext = () => {
-    return new WriteContext(new Schema({ a: {} }), {})
-}
-
-const readContext = (context: WriteContext | Buffer) => {
-    return new ReadContext(
-        context instanceof WriteContext ? context.buffer : context,
-        new Schema({ a: {} })
-    )
-}
+import { createReadCtx, createWriteCtx } from "./utils"
 
 const writeAndRead = (value: unknown): unknown => {
-    let ctx: WriteContext | ReadContext = writeContext()
+    let ctx: WriteContext | ReadContext = createWriteCtx({ a: {} }, {})
     Value.encode.call(ctx, value)
 
-    ctx = readContext(ctx)
+    ctx = createReadCtx(ctx, { a: {} })
     return Value.decode.call(ctx)
 }
 
@@ -43,7 +33,7 @@ test("Encode/Decode NInt128", () => {
 })
 
 test("Decode Float", () => {
-    const ctx = readContext(Buffer.from([3, 66, 240, 10, 193]))
+    const ctx = createReadCtx(new Uint8Array([3, 66, 240, 10, 193]), { a: {} })
     assert.equal(Value.decode.call(ctx), 120.02100372314453)
 })
 
@@ -53,7 +43,7 @@ test("Encode/Decode Double", () => {
 })
 
 test("Encode/Decode Float Fraction Encoding", () => {
-    const int = 12321.23233
+    const int = 56294995.3421312
     assert.equal(writeAndRead(int), int)
 })
 

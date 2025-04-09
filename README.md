@@ -26,9 +26,7 @@ This is the principle of data storage. More details can be found in the [specifi
 
 ## Compactness and compression
 
-The test data package is located here [test/index.test.ts](./test/index.test.ts). When stored as json, it takes up 21.22 KB. When stored in lwfb, it takes up only 8.99 KB.
-
-An object with an array of 200^2 objects that is in [test/pixels.test.ts](./test/pixels.test.ts). When converted to json it is 1363.29Kb in size, in lwfb 614.06Kb.
+An object with an array of 200^2 objects `{x:0,y:0,color:"#000000"}`. When converted to json it is 1363.29Kb in size, in lwfb 614.06Kb.
 
 The format focuses on ensuring that even if data markup is needed, it should be in a repeating format, allowing compression to work more efficiently.
 For example how to write schemas
@@ -38,7 +36,10 @@ For example how to write schemas
 For a more precise understanding of how to use, again, look at the [guide](./docs/Usage.md)
 
 ```ts
+// In ts
 import lwf from "lwf"
+// In CommonJS
+const lwf = require("lwf")
 
 const schema = new lwf.Schema{
     a: {
@@ -70,20 +71,24 @@ Objects to check - array below, repeated 200^2 times
 
 ```json
 {
-    "a": 9007199254740991,
-    "c": {
-        "str": "TEST123",
-        "large": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas sodales dolor quis nisi tincidunt, id gravida neque ornare. Donec sodales tempus metus, et iaculis libero interdum eu. Suspendisse ac neque quis lectus porttitor gravida sit amet blandit neque. Nunc iaculis mollis ex, nec gravida nunc imperdiet et. Praesent non pretium. "
-    }
+    "int": -4503599627370494,
+    "uint": 9007199254740990,
+    "floatFe": 56294995.3421312,
+    "double": 5629499.5342131210001,
+    "string": "Lorem... +331 length"
 }
 ```
 
-| Process     | Format | Time (ms) | Size     |
-| ----------- | ------ | --------- | -------- |
-| serialize   | LWF    | 405       | 14140.63 |
-| stringify   | JSON   | 65        | 15351.56 |
-| deserialize | LWF    | 4552      | x        |
-| parse       | JSON   | 58        | x        |
+```
+┌─────────┬────────┬─────────────┬─────────────┐
+│ (index) │ format │ process     │ millisecond │
+├─────────┼────────┼─────────────┼─────────────┤
+│ 0       │ 'JSON' │ 'stringify' │ 80          │
+│ 1       │ 'JSON' │ 'parse'     │ 53          │
+│ 2       │ 'LWF'  │ 'encode'    │ 203         │
+│ 3       │ 'LWF'  │ 'decode'    │ 1002        │
+└─────────┴────────┴─────────────┴─────────────┘
+```
 
 Parsing is not the fastest process at the moment. The approach to parsing will be changed soon.
 

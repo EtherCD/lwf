@@ -14,10 +14,6 @@ const INT = 2 ** 31
  * @returns The amount of bytes written
  */
 const encode = (x: number, buf, offset) => {
-    if (x > Number.MAX_SAFE_INTEGER) {
-        throw new RangeError("could not encode varint")
-    }
-
     const start = offset
     while (x >= INT) {
         buf[offset++] = (x & REST) | MSB
