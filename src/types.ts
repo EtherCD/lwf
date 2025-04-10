@@ -70,7 +70,9 @@ export enum TypeByte {
  */
 export type WriteStackValue = [Object, number?, boolean?, string?]
 
-export type ReadStackValue = {
-    parent: any
-    key: string | number | null
-}
+export type ReadStackArray = {
+    root: Object
+    key: string | null
+    index: number
+    isArray: boolean
+}[]

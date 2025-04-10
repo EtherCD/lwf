@@ -19,7 +19,8 @@ export const Block = {
             if (!schema.isArray)
                 throw new EncodeError(
                     "Unexpected handling of an object or value instead of an array, key " +
-                        schema.key
+                        schema.key,
+                    schema.key
                 )
 
             if (values.length === 0) return
@@ -119,7 +120,8 @@ export const Block = {
 
                     if (typeof value === "object" && value !== null) {
                         throw new EncodeError(
-                            "Unexpected use of object in list `fields` schema"
+                            "Unexpected use of object in list `fields` schema",
+                            field
                         )
                     } else Value.encode.call(this, value)
 
@@ -154,7 +156,8 @@ export const Block = {
                     this.stack.add(value, schema.nestedI[a])
                 } else
                     throw new EncodeError(
-                        "Unexpected use of non-Object value in `nested` schema"
+                        "Unexpected use of non-Object value in `nested` schema",
+                        field
                     )
             }
 
@@ -172,9 +175,9 @@ export const Block = {
             this.buffer
                 .slice(this.offset - 20, this.offset + 19)
                 .map((e) => void (str += e.toString(16) + " "))
-            console.log(str)
+            // console.log(str)
             //@ts-ignore
-            console.log(util.inspect(this.stack.result, false, null, true))
+            // console.log(util.inspect(this.stack.result, false, null, true))
             throw e
         }
 
@@ -196,7 +199,7 @@ export const Block = {
                     (this.lastSchema.isArray || this.lastSchema.isMap) &&
                     !this.stack.isEqualsIndexes(index)
                 )
-                    this.stack.exitNotObject()
+                    this.stack.exit()
 
                 this.stack.exit(
                     Math.abs(
@@ -207,7 +210,7 @@ export const Block = {
 
         if (isArray) {
             // If this is a new array, let's create it
-            if (!this.stack.isArray || this.stack.currentKey !== schema.key) {
+            if (!this.stack.isArray || this.stack.current.key !== schema.key) {
                 if (index !== 0) {
                     this.stack.enterArray(index, schema.key)
                 }
@@ -227,11 +230,11 @@ export const Block = {
                 return
             } else {
                 this.read() // Reads byte with 0
-                this.stack.enterObject()
+                this.stack.enterObject(index)
             }
         } else if (isMap) {
             if (!this.stack.isEqualsIndexes(index))
-                this.stack.enterMap(index, schema.key)
+                this.stack.enterObject(index, schema.key)
             if (this.peek() !== 0) {
                 const length = Uint.decode.call(this)
 
@@ -244,10 +247,10 @@ export const Block = {
             } else {
                 this.read()
                 const key = Value.decode.call(this)
-                this.stack.enterObject(key)
+                this.stack.enterObject(index, key)
             }
         } else {
-            this.stack.enterObject(schema.key)
+            this.stack.enterObject(index, schema.key)
         }
 
         let a = 0

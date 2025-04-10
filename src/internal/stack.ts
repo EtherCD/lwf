@@ -1,4 +1,4 @@
-import { ReadStackValue, SchemaValue, WriteStackValue } from "../types"
+import { ReadStackArray, SchemaValue, WriteStackValue } from "../types"
 
 export class WriteStack {
     array: WriteStackValue[]
@@ -29,78 +29,35 @@ export class WriteStack {
 }
 
 export class ReadStack {
-    private originalObject: Object
-    /**
-     * Stack of nested objects within each other
-     */
-    private stack: ReadStackValue[] = []
-    /**
-     * An array that stores nesting of arrays or a map when reading
-     */
-    private notObjectsIndexes: number[] = []
+    private stack: ReadStackArray = []
 
     constructor(schema: SchemaValue) {
-        this.originalObject = schema.isArray ? [] : {}
-        this.stack.push({ parent: null, key: null })
-        this.stack.push({ parent: this.originalObject, key: null })
+        if (schema.isArray) this.enterArray(0)
     }
 
-    /**
-     * Returns current element in stack
-     */
-    private get currentFrame() {
+    get current() {
         return this.stack[this.stack.length - 1]
     }
 
-    /**
-     * Returns current ref to object in stack
-     */
-    get currentRef() {
-        const { parent, key } = this.currentFrame
-        return key == null ? parent : parent[key]
-    }
-
-    /**
-     * Creating an object and moving to it on the stack
-     */
-    enterObject(key?: string) {
-        const container = {}
-        if (key !== undefined) {
-            this.currentRef[key] = container
-            this.stack.push({ parent: this.currentRef, key })
-        } else if (Array.isArray(this.currentRef)) {
-            this.currentRef.push(container)
-            this.stack.push({
-                parent: this.currentRef,
-                key: this.currentRef.length - 1
-            })
-        }
+    enterObject(index: number, key: string = null) {
+        this.stack.push({
+            root: {},
+            key,
+            index,
+            isArray: false
+        })
     }
 
     /**
      * Creating an array and moving to it on the stack
      */
-    enterArray(index: number, key?: string) {
-        const container: any[] = []
-        this.notObjectsIndexes.push(index)
-        if (key !== undefined) {
-            this.currentRef[key] = container
-            this.stack.push({ parent: this.currentRef, key })
-        } else if (Array.isArray(this.currentRef)) {
-            this.currentRef.push(container)
-            this.stack.push({
-                parent: this.currentRef,
-                key: this.currentRef.length - 1
-            })
-        }
-    }
-
-    /**
-     * Creating an array-like object and moving to it on the stack
-     */
-    enterMap(index: number, key?: string) {
-        this.notObjectsIndexes.push(index)
-        this.enterObject(key)
+    enterArray(index: number, key: string = null) {
+        this.stack.push({
+            root: [],
+            key,
+            index,
+            isArray: true
+        })
     }
 
     /**
@@ -108,29 +65,18 @@ export class ReadStack {
      * @param levels default 1
      */
     exit(levels: number = 1) {
-        while (levels-- > 0 && this.stack.length > 2) {
-            this.stack.pop()
+        while (levels-- > 0 && this.stack.length >= 2) {
+            const obj = this.stack.pop()
+            if (this.isArray) {
+                ;(this.current.root as Array<unknown>).push(obj.root)
+            } else {
+                this.stack[this.stack.length - 1].root[obj.key] = obj.root
+            }
         }
     }
 
-    /**
-     * Exit from array, or array-like object
-     */
-    exitNotObject() {
-        this.notObjectsIndexes.pop()
-        this.exit()
-    }
-
-    /**
-     * Checking if the current index is the last in a list of array or array-like objects indices
-     * @param index index by schema
-     * @returns boolean
-     */
-    isEqualsIndexes(index: number) {
-        return (
-            this.notObjectsIndexes.length !== 0 &&
-            this.notObjectsIndexes[this.notObjectsIndexes.length - 1] === index
-        )
+    collapse() {
+        this.exit(this.stack.length - 1)
     }
 
     /**
@@ -139,7 +85,7 @@ export class ReadStack {
      * @param value field value
      */
     setField(key: string, value: any) {
-        this.currentRef[key] = value
+        this.current.root[key] = value
     }
 
     /**
@@ -147,25 +93,20 @@ export class ReadStack {
      * @param value not Object value
      */
     pushValue(value: any) {
-        if (Array.isArray(this.currentRef)) {
-            this.currentRef.push(value)
+        if (this.isArray) {
+            ;(this.current.root as Array<unknown>).push(value)
         }
     }
 
+    isEqualsIndexes(index: number) {
+        return this.current && this.current.index === index
+    }
+
     get result() {
-        return this.originalObject
-    }
-
-    get currentKey() {
-        const frame = this.stack[this.stack.length - 1]
-        return frame.key
-    }
-
-    get currentParent() {
-        return this.stack[this.stack.length - 1].parent
+        return this.stack[0].root
     }
 
     get isArray() {
-        return Array.isArray(this.currentRef)
+        return this.current && this.current.isArray
     }
 }

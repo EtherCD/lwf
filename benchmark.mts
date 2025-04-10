@@ -8,6 +8,7 @@ const table: Record<string, { name: string; value: any; ops: number }> = {}
 
 const intVal = -Math.floor(Number.MAX_SAFE_INTEGER / 2) + 1
 const uintVal = Math.floor(Number.MAX_SAFE_INTEGER) - 1
+const int128Val = BigInt(2 ** 128) - 1n
 const floatFeVal = 56294995.3421312
 const doubleVal = 5629499.5342131210001
 const stringVal =
@@ -56,6 +57,15 @@ async function run() {
         ctx.offset = 0
     })
     await makeTest("D Uint", uintVal, () => {
+        Value.decode.call(ctx)
+        ctx.offset = 0
+    })
+
+    await makeTest("E Int128", int128Val, () => {
+        Value.encode.call(ctx, int128Val)
+        ctx.offset = 0
+    })
+    await makeTest("D Int128", int128Val, () => {
         Value.decode.call(ctx)
         ctx.offset = 0
     })

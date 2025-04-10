@@ -11,8 +11,10 @@ export class SchemaError extends LwfError {
 }
 
 export class EncodeError extends LwfError {
-    constructor(message: string) {
+    value: unknown
+    constructor(message: string, value: unknown) {
         super(message)
+        this.value = value
     }
 }
 

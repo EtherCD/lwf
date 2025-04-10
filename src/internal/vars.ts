@@ -101,27 +101,19 @@ export const Value = {
                     value > Number.MAX_SAFE_INTEGER ||
                     value < Number.MIN_SAFE_INTEGER
                 )
-                    throw new EncodeError("Number outside of range " + value)
+                    throw new EncodeError(
+                        "Number outside of range " + value,
+                        value
+                    )
 
                 if (!Number.isInteger(value)) {
-                    const positiveVal = Math.abs(value)
-                    const range = FloatFE.getRange(positiveVal)
-                    const numerator = Math.floor(range)
-                    const denominator = Math.floor((range % 1) * 10)
+                    const pVal = Math.abs(value)
                     this.ensure(1)
-                    if (
-                        numerator !== -1 &&
-                        numerator <= FRACTION_ENCODING_LIMIT
-                    ) {
+                    if (FloatFE.test(pVal)) {
                         this.write(
                             value < 0 ? TypeByte.NFloatFE : TypeByte.FloatFE
                         )
-                        FloatFE.encode.call(
-                            this,
-                            positiveVal,
-                            numerator,
-                            denominator
-                        )
+                        FloatFE.encode.call(this, pVal)
                     } else {
                         this.write(TypeByte.Double)
                         Double.encode.call(this, value)
@@ -140,7 +132,10 @@ export const Value = {
                 }
 
                 if (value < Number.MIN_SAFE_INTEGER / 2)
-                    throw new EncodeError("Number outside of range " + value)
+                    throw new EncodeError(
+                        "Number outside of range of int " + value,
+                        value
+                    )
                 this.ensure(1)
                 this.write(TypeByte.Int)
                 Int.encode.call(this, value)
@@ -148,7 +143,8 @@ export const Value = {
             case "bigint":
                 if (value > BIG_INT_MAX || value < -BIG_INT_MAX)
                     throw new EncodeError(
-                        "BigInt outside of range 128 bits, value " + value
+                        "BigInt outside of range 128 bits, value " + value,
+                        value
                     )
 
                 this.write(value < 0 ? TypeByte.NUint128 : TypeByte.Uint128)
@@ -164,12 +160,14 @@ export const Value = {
                 if (value === null) this.write(TypeByte.Null)
                 else
                     throw new EncodeError(
-                        "Unexpected object when serializing simple values "
+                        "Unexpected object when serializing simple values ",
+                        null
                     )
                 return
             default:
                 throw new EncodeError(
-                    "Unsupported data type " + typeof value + " value " + value
+                    "Unsupported data type " + typeof value + " value " + value,
+                    value
                 )
         }
     }
@@ -276,17 +274,7 @@ const FloatFE = {
         const denominator = this.buffer[this.offset++]
         return numerator / 10 ** denominator
     },
-    encode(
-        this: Context,
-        value: number,
-        numerator: number,
-        denominator: number
-    ) {
-        Uint.encode.call(this, numerator)
-        this.ensure(1)
-        this.buffer[this.offset++] = denominator & 0xff
-    },
-    getRange(value: number): number {
+    encode(this: Context, value: number) {
         let denominator = 0
         let scaled = value < 0 ? -value : value
 
@@ -296,7 +284,21 @@ const FloatFE = {
         }
 
         const numerator = Math.round(scaled)
-        return denominator === 14 ? -1 : numerator + denominator / 10
+        Uint.encode.call(this, numerator)
+        this.ensure(1)
+        this.write(denominator & 0xff)
+    },
+    test(value: number) {
+        let denominator = 0
+        let scaled = value < 0 ? -value : value
+
+        while (denominator < 15 && scaled % 1 !== 0) {
+            scaled *= 10
+            denominator++
+        }
+
+        const numerator = Math.round(scaled)
+        return numerator <= FRACTION_ENCODING_LIMIT
     }
 }
 

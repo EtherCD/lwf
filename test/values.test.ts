@@ -51,3 +51,7 @@ test("Encode/Decode Booleans", () => {
     assert.equal(writeAndRead(true), true)
     assert.equal(writeAndRead(false), false)
 })
+
+test("Encode/Decode Strings", () => {
+    assert.equal(writeAndRead("Lorem ipsum 😶"), "Lorem ipsum 😶")
+})

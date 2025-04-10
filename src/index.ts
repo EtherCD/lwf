@@ -19,6 +19,8 @@ export const decode = (
         Block.decode.call(context)
     }
 
+    context.stack.collapse()
+
     return context.stack.result
 }
 

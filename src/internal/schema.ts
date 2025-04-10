@@ -62,6 +62,23 @@ export class Schema {
                 }
             }
 
+            if (i !== 0 && !val.key) {
+                throw new SchemaError(
+                    `Nested schemas must have a key ${index}`,
+                    index
+                )
+            }
+            if (
+                val.fields &&
+                val.fields.length === 0 &&
+                !val.isArray &&
+                !val.isMap
+            )
+                throw new SchemaError(
+                    `The schema must have fields ${index}`,
+                    index
+                )
+
             processed.nestedI = nestedI.length ? nestedI : undefined
             processed.nestedK = nestedK.length ? nestedK : undefined
             processed.nestingDepth = parentChains[i].length + 1
