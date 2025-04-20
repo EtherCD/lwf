@@ -14,15 +14,42 @@
 
 </div>
 
-> The format stores data according to the scheme, see the guide
->
-> There are also some limitations
-
 # About
 
-This format uses a scheme for writing and reading data. The main goal of the format is compactness and compression friendliness. Therefore, to make the record even more compact, the scheme stores the names of the fields by which the data is stored. And the data itself in its pure form is stored in binary form.
+The format is designed to store large amounts of data more compactly, to compact packet sending, to work in browsers, and so on.
 
-This is the principle of data storage. More details can be found in the [specification](./docs/Specification.md)
+It is a very compact and fast binary format due to:
+
+1. Recording only fields, which is a major simplification of the format data.
+2. Using compact varint, which is often faster than checks and the like, to determine the bit depth of numbers. It is also compact in itself
+3. The encoding of fractional numbers is more compact by storing the denominator as a varint and the numerator as a power of 10. If this record is larger than 8 bytes, then this library will automatically write it using another more powerful method `ieee754`
+4. Data blocks are the most compact data unit here, only one byte is written for an object, by which the format is oriented. If it is an array, then 2 bytes (2 variant numbers).
+
+Library Features:
+
+1. The performance of writing values ​​here is very fast.
+2. The encoding of the object as a whole is close in speed to JSON (often 2 times slower than JSON)
+
+-   When JSON takes `88ms` to build `200**2` objects, the library takes `233ms`
+
+3. Fully native implementation.
+
+-   Since native implementations of compression algorithms on js are slow, and wasm is not supported by all browsers, this library is perfect for its compactness and processing speed.
+
+Current issues:
+
+1. Decode performance is fast, but often slower than encode.
+
+-   When JSON has 66ms, the format has 1000ms. [See 4 issue](https://github.com/EtherCD/lwf/issues/4)
+
+2. Some limitations of the scheme.
+
+-   [See 3 issue](https://github.com/EtherCD/lwf/issues/3)
+
+3. Performance, see [decoding bad performance issue](https://github.com/EtherCD/lwf/issues/4), for very large object
+4. Fully native js implementation
+
+Please see the guide to understand the limitations of the current implementation.
 
 ## Compactness and compression
 

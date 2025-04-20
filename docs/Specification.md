@@ -53,7 +53,7 @@ To compactly record numbers greater than 64 bits, the type byte indicates whethe
 | 00       | Int      | signed 64bits             |
 | 01       | Uint128  | positive unsigned 128bits |
 | 02       | NUint128 | negative unsigned 128bits |
-| 10> 87<  | NUint128 | negative unsigned 128bits |
+| 10> 87<  | Uint     | unsigned 64bits           |
 
 Unsigned 64-bit numbers are written in a more compact way. The number is written in TypeByte, for this purpose there are intervals in the entire typing, the interval for this number is **10** - **87** in hexdecimal. The maximum value that can be written is 119 or **87** in the typing, and this very value indicates that after there will be an expanding varint
 

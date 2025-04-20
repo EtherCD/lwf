@@ -9,6 +9,7 @@ const writeAndRead = (value: unknown): unknown => {
     Value.encode.call(ctx, value)
 
     ctx = createReadCtx(ctx, { a: {} })
+    // console.log(ctx.buffer)
     return Value.decode.call(ctx)
 }
 
@@ -23,12 +24,12 @@ test("Encode/Decode Uint", () => {
 })
 
 test("Encode/Decode Int128", () => {
-    const int = BigInt(128 ** 2)
+    const int = BigInt(2 ** 128)
     assert.equal(writeAndRead(int), int)
 })
 
 test("Encode/Decode NInt128", () => {
-    const int = BigInt(-(128 ** 2))
+    const int = BigInt(-(2 ** 128))
     assert.equal(writeAndRead(int), int)
 })
 

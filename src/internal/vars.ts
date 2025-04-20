@@ -5,9 +5,11 @@ import { Context, ReadContext } from "./context"
 import { DecodeError, EncodeError } from "../errors"
 
 const BIG_INT_ZERO = BigInt(0)
+const BIG_INT_ONE = BigInt(1)
 const BIG_INT_SEVEN = BigInt(7)
 const BIG_INT_NEXT = BigInt(0x80)
 const BIG_INT_ENDIAN = BigInt(0x7f)
+const BIG_INT_FULL_ENDIAN = BigInt(0xff)
 const BIG_INT_LENGTH = 19
 const BIG_INT_MAX = 2 ** 128
 const UINT_LENGTH_MAX = 11
@@ -16,6 +18,9 @@ const UINT_LENGTH_MAX = 11
  * The threshold at which encoding using Fraction Encoding becomes ineffective (more than 8 bytes)
  */
 const FRACTION_ENCODING_LIMIT = 2 ** (7 * 7) // 562_949_953_421_312_2
+
+// For more efficient pow, by array is working more fast, than Math.pow()
+const POW10 = Array.from({ length: 15 }, (_, i) => 10 ** i)
 
 // Range in byte type in which additional values ​​can be encoded
 const UINT_64_ADDITIONAL_MIN = 0x10
@@ -107,17 +112,7 @@ export const Value = {
                     )
 
                 if (!Number.isInteger(value)) {
-                    const pVal = Math.abs(value)
-                    this.ensure(1)
-                    if (FloatFE.test(pVal)) {
-                        this.write(
-                            value < 0 ? TypeByte.NFloatFE : TypeByte.FloatFE
-                        )
-                        FloatFE.encode.call(this, pVal)
-                    } else {
-                        this.write(TypeByte.Double)
-                        Double.encode.call(this, value)
-                    }
+                    Value.wrapFloat.call(this, value)
                     return
                 }
 
@@ -147,6 +142,7 @@ export const Value = {
                         value
                     )
 
+                this.ensure(1)
                 this.write(value < 0 ? TypeByte.NUint128 : TypeByte.Uint128)
                 Uint128.encode.call(
                     this,
@@ -157,8 +153,10 @@ export const Value = {
                 Str.encode.call(this, value)
                 return
             case "object":
-                if (value === null) this.write(TypeByte.Null)
-                else
+                if (value === null) {
+                    this.ensure(1)
+                    this.write(TypeByte.Null)
+                } else
                     throw new EncodeError(
                         "Unexpected object when serializing simple values ",
                         null
@@ -169,6 +167,31 @@ export const Value = {
                     "Unsupported data type " + typeof value + " value " + value,
                     value
                 )
+        }
+    },
+    wrapFloat(this: Context, value: number) {
+        let denominator = 0
+        let scaled = value < 0 ? -value : value
+
+        this.ensure(1)
+
+        while (scaled % 1 !== 0) {
+            scaled *= 10
+            denominator++
+            if (denominator >= 15) {
+                this.write(TypeByte.Double)
+                Double.encode.call(this, value)
+                return
+            }
+        }
+
+        const numerator = Math.round(scaled)
+        if (numerator <= FRACTION_ENCODING_LIMIT) {
+            this.write(value < 0 ? TypeByte.NFloatFE : TypeByte.FloatFE)
+            FloatFE.encode.call(this, numerator, denominator)
+        } else {
+            this.write(TypeByte.Double)
+            Double.encode.call(this, value)
         }
     }
 }
@@ -243,7 +266,7 @@ const Uint128 = {
 
         do {
             b = BigInt(this.buffer[this.offset++])
-            result += (b & BIG_INT_ENDIAN) << shift
+            result += (b & BIG_INT_FULL_ENDIAN) << shift
             shift += BIG_INT_SEVEN
         } while (b & BIG_INT_NEXT)
 
@@ -255,9 +278,10 @@ const Uint128 = {
         while (value > BIG_INT_ENDIAN) {
             this.buffer[this.offset++] = Number(value & BIG_INT_ENDIAN) | 0x80
             value >>= BIG_INT_SEVEN
+            value -= BIG_INT_ONE
         }
 
-        this.buffer[this.offset++] = Number(value)
+        this.buffer[this.offset++] = Number(value) & 0x7f
     }
 }
 
@@ -272,33 +296,12 @@ const FloatFE = {
     decode(this: Context) {
         const numerator = Uint.decode.call(this)
         const denominator = this.buffer[this.offset++]
-        return numerator / 10 ** denominator
+        return numerator / POW10[denominator]
     },
-    encode(this: Context, value: number) {
-        let denominator = 0
-        let scaled = value < 0 ? -value : value
-
-        while (denominator < 15 && scaled % 1 !== 0) {
-            scaled *= 10
-            denominator++
-        }
-
-        const numerator = Math.round(scaled)
+    encode(this: Context, numerator: number, denominator: number) {
         Uint.encode.call(this, numerator)
         this.ensure(1)
         this.write(denominator & 0xff)
-    },
-    test(value: number) {
-        let denominator = 0
-        let scaled = value < 0 ? -value : value
-
-        while (denominator < 15 && scaled % 1 !== 0) {
-            scaled *= 10
-            denominator++
-        }
-
-        const numerator = Math.round(scaled)
-        return numerator <= FRACTION_ENCODING_LIMIT
     }
 }
 

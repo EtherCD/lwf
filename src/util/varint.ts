@@ -5,6 +5,7 @@ const MSB = 0x80
 const REST = 0x7f
 const MSBALL = ~REST
 const INT = 2 ** 31
+const POW2 = Array.from({ length: 64 }, (_, i) => 2 ** i)
 
 /**
  * Encodes a compact varint
@@ -44,7 +45,7 @@ const decode = (buf, offset) => {
 
     while (true) {
         const b = buf[n++]
-        x += shift < 28 ? (b & 0xff) << shift : (b & 0xff) * Math.pow(2, shift)
+        x += (b & 0xff) * POW2[shift]
         if ((b & MSB) === 0) {
             return [x, n - offset]
         }
