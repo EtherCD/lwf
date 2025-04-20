@@ -36,9 +36,6 @@ Library Features:
 
 -   Since native implementations of compression algorithms on js are slow, and wasm is not supported by all browsers, this library is perfect for its compactness and processing speed.
 
-3. Performance, see [decoding bad performance issue](https://github.com/EtherCD/lwf/issues/4), for very large object
-4. Fully native js implementation
-
 Current issues:
 
 1. Decode performance is fast, but often slower than encode.
