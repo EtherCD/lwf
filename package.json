@@ -2,7 +2,7 @@
     "name": "lwf",
     "description": "Lightweight Format - A very compact, compression friendly, binary format for storing JSON like objects.",
     "license": "BSD-3-Clause",
-    "version": "2.1.8",
+    "version": "2.2.0",
     "repository": {
         "type": "git",
         "url": "https://github.com/EtherCD/lwf"
@@ -18,6 +18,7 @@
     "scripts": {
         "build": "tsup src/index.ts --dts",
         "bench": "tsx benchmark.mts",
+        "desc": "tsx desc.ts",
         "test": "jest"
     },
     "dependencies": {

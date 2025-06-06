@@ -337,11 +337,12 @@ const Double = {
     }
 }
 
+const textDecode = new TextDecoder("utf-8")
+const textEncode = new TextEncoder()
+
 /**
- * Encodes string
+ * Encodes string. MORE FAST!
  */
-// Realization of fast encoding and decoding for string taken from protobuf.js.
-// https://github.com/protobufjs/protobuf.js/blob/master/lib/utf8/index.js
 const Str = {
     decode(this: Context, type: number) {
         let length = NumberType.decode.call(
@@ -353,36 +354,10 @@ const Str = {
 
         if (length <= 0) return ""
 
-        const end = this.offset + length
+        const view = this.buffer.subarray(this.offset, this.offset + length)
+        this.offset += length
 
-        var str = ""
-        for (; this.offset < end; ) {
-            var t = this.read()
-            if (t <= 0x7f) {
-                str += String.fromCharCode(t)
-            } else if (t >= 0xc0 && t < 0xe0) {
-                str += String.fromCharCode(
-                    ((t & 0x1f) << 6) | (this.read() & 0x3f)
-                )
-            } else if (t >= 0xe0 && t < 0xf0) {
-                str += String.fromCharCode(
-                    ((t & 0xf) << 12) |
-                        ((this.read() & 0x3f) << 6) |
-                        (this.read() & 0x3f)
-                )
-            } else if (t >= 0xf0) {
-                var t2 =
-                    (((t & 7) << 18) |
-                        ((this.read() & 0x3f) << 12) |
-                        ((this.read() & 0x3f) << 6) |
-                        (this.read() & 0x3f)) -
-                    0x10000
-                str += String.fromCharCode(0xd800 + (t2 >> 10))
-                str += String.fromCharCode(0xdc00 + (t2 & 0x3ff))
-            }
-        }
-
-        return str
+        return textDecode.decode(view)
     },
     encode(this: Context, value: string) {
         if (value.length === 0) {
@@ -395,58 +370,16 @@ const Str = {
             return
         }
 
-        const len = Str._len(value)
-
+        const encoded = textEncode.encode(value)
         NumberType.encode.call(
             this,
-            len,
+            encoded.length,
             STRING_LENGTH_ADDITIONAL_MIN,
             STRING_LENGTH_ADDITIONAL_MAX
         )
-        this.ensure(len)
-
-        var c1, // character 1
-            c2 // character 2
-        for (var i = 0; i < value.length; ++i) {
-            c1 = value.charCodeAt(i)
-            if (c1 < 128) {
-                this.write(c1)
-            } else if (c1 < 2048) {
-                this.write((c1 >> 6) | 192)
-                this.write((c1 & 63) | 128)
-            } else if (
-                (c1 & 0xfc00) === 0xd800 &&
-                ((c2 = value.charCodeAt(i + 1)) & 0xfc00) === 0xdc00
-            ) {
-                c1 = 0x10000 + ((c1 & 0x03ff) << 10) + (c2 & 0x03ff)
-                ++i
-                this.write((c1 >> 18) | 240)
-                this.write(((c1 >> 12) & 63) | 128)
-                this.write(((c1 >> 6) & 63) | 128)
-                this.write((c1 & 63) | 128)
-            } else {
-                this.write((c1 >> 12) | 224)
-                this.write(((c1 >> 6) & 63) | 128)
-                this.write((c1 & 63) | 128)
-            }
-        }
-    },
-    _len(string: string) {
-        var len = 0,
-            c = 0
-        for (var i = 0; i < string.length; ++i) {
-            c = string.charCodeAt(i)
-            if (c < 128) len += 1
-            else if (c < 2048) len += 2
-            else if (
-                (c & 0xfc00) === 0xd800 &&
-                (string.charCodeAt(i + 1) & 0xfc00) === 0xdc00
-            ) {
-                ++i
-                len += 4
-            } else len += 3
-        }
-        return len
+        this.ensure(encoded.length)
+        this.buffer.set(encoded, this.offset)
+        this.offset += encoded.length
     }
 }
 

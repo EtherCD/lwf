@@ -107,14 +107,12 @@ Objects to check - array below, repeated 200^2 times
 ┌─────────┬────────┬─────────────┬─────────────┐
 │ (index) │ format │ process     │ millisecond │
 ├─────────┼────────┼─────────────┼─────────────┤
-│ 0       │ 'JSON' │ 'stringify' │ 80          │
-│ 1       │ 'JSON' │ 'parse'     │ 53          │
-│ 2       │ 'LWF'  │ 'encode'    │ 203         │
-│ 3       │ 'LWF'  │ 'decode'    │ 1002        │
+│ 0       │ 'JSON' │ 'stringify' │ 82          │
+│ 1       │ 'JSON' │ 'parse'     │ 56          │
+│ 2       │ 'LWF'  │ 'encode'    │ 200         │
+│ 3       │ 'LWF'  │ 'decode'    │ 130         │
 └─────────┴────────┴─────────────┴─────────────┘
 ```
-
-Parsing is not the fastest process at the moment. The approach to parsing will be changed soon.
 
 ## Special
 

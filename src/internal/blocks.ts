@@ -171,10 +171,10 @@ export const Block = {
         try {
             schema = this.schema.getSchema(index)
         } catch (e) {
-            let str = ""
-            this.buffer
-                .slice(this.offset - 20, this.offset + 19)
-                .map((e) => void (str += e.toString(16) + " "))
+            // let str = ""
+            // this.buffer
+            //     .slice(this.offset - 20, this.offset + 19)
+            //     .map((e) => void (str += e.toString(16) + " "))
             // console.log(str)
             //@ts-ignore
             // console.log(util.inspect(this.stack.result, false, null, true))
@@ -196,8 +196,9 @@ export const Block = {
             ) {
             } else {
                 if (
-                    (this.lastSchema.isArray || this.lastSchema.isMap) &&
-                    !this.stack.isEqualsIndexes(index)
+                    (schema.isArray || schema.isMap) &&
+                    !this.stack.isEqualsIndexes(index) &&
+                    !justValues
                 )
                     this.stack.exit()
 
