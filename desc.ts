@@ -3,24 +3,24 @@ import { inspect } from "util"
 
 let obj = [
     {
-        a: [
-            {
+        a: {
+            a: {
                 cc: [20],
                 b: {
                     c: true
                 }
             }
-        ]
+        }
     },
     {
-        a: [
-            {
+        a: {
+            c: {
                 cc: [20],
                 b: {
                     c: true
                 }
             }
-        ]
+        }
     }
 ]
 
@@ -31,7 +31,7 @@ const schema = new Schema({
     },
     a: {
         key: "a",
-        isArray: true,
+        isMap: true,
         nested: ["b", "cc"]
     },
     b: {
