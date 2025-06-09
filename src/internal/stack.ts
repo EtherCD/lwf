@@ -110,3 +110,7 @@ export class ReadStack {
         return this.current && this.current.isArray
     }
 }
+
+export class StreamStack {
+    index: number
+}

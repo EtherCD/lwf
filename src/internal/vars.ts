@@ -1,4 +1,4 @@
-import ieee754 from "ieee754"
+import * as ieee754 from "../util/ieee754"
 import * as varint from "../util/varint"
 import { TypeByte } from "../types"
 import { Context, ReadContext } from "./context"
@@ -56,6 +56,11 @@ export const Value = {
                 return FloatFE.decode.call(this)
             case TypeByte.NFloatFE:
                 return -FloatFE.decode.call(this)
+            case TypeByte.Empty:
+                return
+            case TypeByte.EmptyCount:
+                Uint.decode.call(this)
+                return
             default:
                 if (
                     NumberType.inRange(
@@ -80,11 +85,6 @@ export const Value = {
                 )
                     return Str.decode.call(this, type)
                 let a = ""
-                this.buffer
-                    .slice(this.offset - 10, this.offset + 9)
-                    .forEach((v) => {
-                        a += v.toString(16) + " "
-                    })
                 throw new DecodeError(
                     "Unsupported data type " + type.toString(16)
                 )

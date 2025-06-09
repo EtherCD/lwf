@@ -18,12 +18,19 @@ export class Schema {
         const result = this.value[index]
         if (!result) {
             throw new SchemaError(
-                "Trying get not exist schema, " + index.toString(16),
+                "Trying get not exist schema, " +
+                    index.toString(16) +
+                    " or " +
+                    index,
                 index.toString(16),
                 true
             )
         }
         return result
+    }
+
+    has(index: number) {
+        return this.value[index]
     }
 
     private process(raw: RawSchema) {

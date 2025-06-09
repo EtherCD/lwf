@@ -71,3 +71,10 @@ export class ReadContext extends Context {
         this.stack = new ReadStack(schema.getSchema(0))
     }
 }
+
+export class ConvertContext extends Context {
+    constructor(buffer: Uint8Array | Buffer | ArrayBuffer, schema: Schema) {
+        super(schema)
+        this.buffer = new Uint8Array(buffer)
+    }
+}
