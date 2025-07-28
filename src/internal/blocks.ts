@@ -1,8 +1,8 @@
 import { EncodeError } from "../errors"
-import { WriteStackValue } from "../types"
-import { ConvertContext, ReadContext, WriteContext } from "./context"
-import { Schema } from "./schema"
+import { SchemaValue, WriteStackValue } from "../types"
+import { ReadContext, WriteContext } from "./context"
 import { Empty, Uint, Value } from "./vars"
+import util from "util"
 
 export const Block = {
     encode(this: WriteContext, element: WriteStackValue) {
@@ -172,13 +172,13 @@ export const Block = {
         try {
             schema = this.schema.getSchema(index)
         } catch (e) {
-            // let str = ""
-            // this.buffer
-            //     .slice(this.offset - 20, this.offset + 19)
-            //     .map((e) => void (str += e.toString(16) + " "))
-            // console.log(str)
+            let str = ""
+            this.buffer
+                .slice(this.offset - 20, this.offset + 19)
+                .map((e) => void (str += e.toString(16) + " "))
+            console.log(str)
             //@ts-ignore
-            // console.log(util.inspect(this.stack.result, false, null, true))
+            console.log(util.inspect(this.stack.result, false, null, true))
             throw e
         }
 
@@ -201,9 +201,7 @@ export const Block = {
                     !this.stack.isEqualsIndexes(index) &&
                     !justValues
                 )
-                    this.stack.exit(
-                        schema.nestingDepth - this.lastSchema.nestingDepth
-                    )
+                    this.stack.exit()
 
                 this.stack.exit(
                     Math.abs(
@@ -277,70 +275,6 @@ export const Block = {
 
         this.lastIndex = index
         this.lastSchema = schema
-    },
-    convert(this: null, decode: ConvertContext, encode: WriteContext) {
-        const index = Uint.decode.call(decode)
-
-        const oldSchema = decode.schema.getSchema(index)
-
-        console.log(index)
-
-        if (!encode.schema.has(index)) {
-            if (oldSchema.fields) {
-                for (let i = 0; i < oldSchema.fields.length; i++) {
-                    if (Empty.check.call(decode)) {
-                        const count = Empty.decode.call(decode)
-                        i += count
-                        continue
-                    }
-                    Value.decode.call(decode)
-                }
-                return
-            }
-            return
-        }
-
-        Uint.encode.call(encode, index)
-        if (oldSchema.isArray) {
-            Uint.encode.call(encode, Uint.decode.call(decode))
-        }
-
-        const newSchema = encode.schema.getSchema(index)
-
-        const map = new Map<string, any>()
-
-        if (oldSchema.fields)
-            for (let i = 0; i < oldSchema.fields.length; i++) {
-                if (Empty.check.call(decode)) {
-                    const count = Empty.decode.call(decode)
-                    i += count
-                    continue
-                }
-                map.set(oldSchema.fields[i], Value.decode.call(decode))
-            }
-
-        console.log(map)
-
-        let empty = 0
-        if (newSchema.fields) {
-            for (let j = 0; j < newSchema.fields.length; j++) {
-                const current = newSchema.fields[j]
-
-                if (map.has(current)) {
-                    if (empty != 0) {
-                        Empty.encode.call(encode, empty)
-                        empty = 0
-                    }
-                    Value.encode.call(encode, map.get(current))
-                } else {
-                    empty++
-                }
-            }
-
-            if (empty != 0) {
-                Empty.encode.call(encode, empty)
-            }
-        }
     }
 }
 

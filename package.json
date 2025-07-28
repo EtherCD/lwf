@@ -22,8 +22,7 @@
         "test": "jest"
     },
     "dependencies": {
-        "ieee754": "^1.2.1",
-        "yaml-js": "^0.3.1"
+        "ieee754": "^1.2.1"
     },
     "devDependencies": {
         "@babel/preset-env": "^7.26.9",
