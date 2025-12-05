@@ -1,5 +1,4 @@
 import lwf from "../src"
-import { inspectLwf } from "../src/util/inspect"
 import assert from "assert"
 
 const object = [
@@ -264,7 +263,6 @@ const schema = new lwf.Schema({
 
 test("Summary test", () => {
     const encoded = lwf.encode(object, schema)
-    console.log(inspectLwf(encoded))
     const a = lwf.decode(encoded, schema)
     assert.deepStrictEqual(lwf.decode(encoded, schema), object)
 })

@@ -6,8 +6,6 @@ Currently, the library cannot write arrays in arrays, nor array-likes in array-l
 
 BigInt numbers are limited to 128 bits
 
-[Issue with array and map types](https://github.com/EtherCD/lwf/issues/3)
-
 ## Schema
 
 To create a scheme create an instance of the `Schema` class.
@@ -138,4 +136,40 @@ To describe an array-like object, we need to specify `isMap` in the schema.
     "email": "20@mail.com"
   }
 }
+```
+
+## As a file storage
+
+To store data as a file, it is recommended to use ready-made format utilities, such as lwfFile.
+
+The schema is saved in the file header, so you don't have to store the diagram, and it will always be there.
+
+The format supports metadata for greater compatibility.
+
+### Usage
+
+```ts
+const schema = {
+    a: {
+        fields: ["full"]
+    }
+}
+
+const file = lwfFile.encode({ full: true }, schema)
+const object = lwfFile.decode(file)
+```
+
+To support possible deviations and schema changes during writing, metadata was added to encode.
+
+Its syntax is like this
+
+```json
+{ "version": "0.0.1", "some": "data" }
+```
+
+```ts
+/**
+ *
+ */
+const file = lwfFile.encode({ full: true }, schema,  /* metadata */)
 ```
