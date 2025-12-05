@@ -111,11 +111,49 @@ const schema = new lwf.Schema({
     }
 })
 
-var hexchar = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, "A", "B", "C", "D", "E", "F"].map(
-    (v) => v.toString()
-)
-function decToHex(num) {
-    let out = num & 15
-    num = num >>> 4
-    return num ? decToHex(num) + hexchar[out] : hexchar[out]
+const a = {
+    areas: [{ properties: { x: 0, y: 0 } }],
+    data: {
+        colors: {
+            chat: "rgba(145,152,255,255)",
+            fill: "rgba(145,152,255,255)",
+            leaderBoard: "rgba(145,152,255,255)",
+            stroke: "rgba(145,152,0,255)"
+        },
+        name: "Catastrophic Collapse"
+    },
+    zones: [
+        {
+            h: 64,
+            spawners: [
+                {
+                    amount: 40,
+                    radius: 0,
+                    speed: "speed",
+                    types: ["accelerator", "aasdasd"]
+                }
+            ],
+            translate: { x: 0, y: -11200 },
+            type: "teleport",
+            w: 320,
+            x: 0,
+            y: 0
+        },
+        {
+            h: 64,
+            spawners: [
+                {
+                    amount: 40,
+                    radius: 0,
+                    speed: "speed",
+                    types: ["accelerator", "aasdasd"]
+                }
+            ],
+            translate: { x: 0, y: -11200 },
+            type: "teleport",
+            w: 320,
+            x: 0,
+            y: 0
+        }
+    ]
 }

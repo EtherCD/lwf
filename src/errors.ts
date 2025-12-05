@@ -1,24 +1,22 @@
-export class LwfError extends Error {}
-
-export class SchemaError extends LwfError {
-    public keyOfSchema: string
-    public isDecoding: boolean
-    constructor(message: string, key: string, isDecoding?: boolean) {
+export class OptionsError extends Error {
+    constructor(message: string) {
         super(message)
-        this.keyOfSchema = key
-        this.isDecoding = isDecoding ?? false
     }
 }
 
-export class EncodeError extends LwfError {
-    value: unknown
-    constructor(message: string, value: unknown) {
+export class SchemaError extends Error {
+    constructor(message: string) {
         super(message)
-        this.value = value
     }
 }
 
-export class DecodeError extends LwfError {
+export class EncodeError extends Error {
+    constructor(message: string) {
+        super(message)
+    }
+}
+
+export class DecodeError extends Error {
     constructor(message: string) {
         super(message)
     }

@@ -1,135 +1,100 @@
 const lwf = require("./dist").default
-
-
-const schema = new lwf.Schema({
- 
-
-    a: {
- 
-
-        fields: ["a", "b"],
- 
-
-        isArray: true,
- 
-
-        nested: ["b"]
- 
-
-    },
- 
-
-    b: {
- 
-
-        key: "c",
- 
-
-        fields: ["str", "large"]
- 
-
-    }
- 
-
-})
- 
-
-
- 
-
-const count = 200 ** 2
- 
-
-
- 
-
-const object = []
- 
-
-
- 
-
-for (let x = 0; x < count; x++) {
- 
-
-    object.push({
- 
-
-        a: Math.pow(2, 53) - 1,
- 
-
-        c: {
- 
-
-            str: "TEST123",
- 
-
-            large: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas sodales dolor quis nisi tincidunt, id gravida neque ornare. Donec sodales tempus metus, et iaculis libero interdum eu. Suspendisse ac neque quis lectus porttitor gravida sit amet blandit neque. Nunc iaculis mollis ex, nec gravida nunc imperdiet et. Praesent non pretium. "
- 
-
+const util = require("util")
+const object = {
+    data: {
+        name: "Catastrophic Collapse",
+        colors: {
+            leaderBoard: "rgba(145,152,255,255)",
+            fill: "rgba(145,152,255,255)",
+            stroke: "rgba(145,152,0,255)",
+            chat: "rgba(145,152,255,255)"
         }
- 
-
-    })
- 
-
+    },
+    areas: [
+        {
+            properties: { x: 0, y: 0 },
+            zones: [
+                {
+                    type: "teleport",
+                    x: 0,
+                    y: 0,
+                    w: 320,
+                    h: 64,
+                    translate: { x: 0, y: -11200 },
+                    spawners: [
+                        {
+                            amount: 40,
+                            radius: 0,
+                            speed: "speed",
+                            types: ["accelerator", "aasdasd"]
+                        }
+                    ]
+                },
+                {
+                    type: "teleport",
+                    x: 0,
+                    y: 0,
+                    w: 320,
+                    h: 64,
+                    translate: { x: 0, y: -11200 },
+                    spawners: [
+                        {
+                            amount: 40,
+                            radius: 0,
+                            speed: "speed",
+                            types: ["accelerator", "aasdasd"]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
 }
 
-const table = [{ LWFB: 0, JSON: 0, LWFBP: 0, JSONP: 0 }]
- 
+const schema = new lwf.Schema({
+    g: {
+        nested: ["d", "a"]
+    },
+    d: {
+        key: "data",
+        fields: ["name"],
+        nested: ["c"]
+    },
+    c: {
+        key: "colors",
+        fields: ["leaderBoard", "fill", "stroke", "chat"]
+    },
+    a: {
+        key: "areas",
+        isArray: true,
+        nested: ["p", "z"]
+    },
+    p: {
+        key: "properties",
+        fields: ["x", "y", "w", "h"]
+    },
+    z: {
+        key: "zones",
+        isArray: true,
+        fields: ["type", "x", "y", "w", "h"],
+        nested: ["s", "l"]
+    },
+    l: {
+        key: "translate",
+        fields: ["x", "y"]
+    },
+    s: {
+        key: "spawners",
+        isArray: true,
+        fields: ["speed", "radius", "amount"],
+        nested: ["t"]
+    },
+    t: {
+        key: "types",
+        isArray: true
+    }
+})
 
+const enc = lwf.encode(object, schema)
 
- 
-
-    var time1 = Date.now()
- 
-
-    const binaryData = lwf.encode(object, schema)
- 
-
-    table[0]["LWFB"] = Date.now() - time1
- 
-
-    time1 = Date.now()
- 
-
-    const jsonData = JSON.stringify(object)
- 
-
-    table[0]["JSON"] = Date.now() - time1
- 
-
-
- 
-
-    time1 = Date.now()
- 
-
-    lwf.decode(binaryData, schema)
- 
-
-    table[0]["LWFBP"] = Date.now() - time1
- 
-
-    time1 = Date.now()
- 
-
-    JSON.parse(jsonData)
- 
-
-    table[0]["JSONP"] = Date.now() - time1
- 
-
-
- 
-
-    console.table(table)
- 
-
-
- 
-
-    console.log("Size in json: " + Math.round(jsonData.length / 10.24) / 100)
- 
-
-    console.log("Size in lwfb: " + Math.round(binaryData.length / 10.24) / 100)
+console.log(util.inspect(lwf.decode(enc, schema), false, null, true))

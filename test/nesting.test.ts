@@ -23,6 +23,13 @@ const obj = {
     ]
 }
 
+const a = {
+    array: [
+        { map: { "1": 20, "3": { field: 20 } } },
+        { map: { "1": 20, "2": { array: [20] } } }
+    ]
+}
+
 const schema = new lwf.Schema({
     1: {
         nested: ["array"]

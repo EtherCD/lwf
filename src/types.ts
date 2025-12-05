@@ -1,7 +1,7 @@
 export type HexNumber = number
 
 export type RawSchema = Record<string, RawSchemaValue>
-export type ProcessedSchema = SchemaValue[]
+export type ProcessedSchema = Record<number, SchemaValue>
 
 export type RawSchemaValue = {
     /**
@@ -37,10 +37,6 @@ export type SchemaValue = RawSchemaValue & {
      * Keys of nested schemas
      */
     nestedK?: string[]
-    /**
-     * Nesting depth
-     */
-    nestingDepth?: number
 }
 
 export type GenericSchemaValues = string
@@ -61,18 +57,18 @@ export enum TypeByte {
     False,
     True,
     Null,
+    EndOfBlock,
+    EndOfBlockCount,
     Empty = 0x0e,
     EmptyCount = 0x0f
 }
 
 /**
- * obj, overrideIndex, isArrayWithoutObjects, key
+ * obj, overrideIndex, isArrayWithoutObjects, key, nestingDepth
  */
-export type WriteStackValue = [Object, number?, boolean?, string?]
+export type WriteStackValue = [Object, number?, boolean?, string?, number?]
 
-export type ReadStackArray = {
-    root: Object
-    key: string | null
-    index: number
-    isArray: boolean
-}[]
+export type ReadStackValue = {
+    parent: any
+    key: string | number | null
+}

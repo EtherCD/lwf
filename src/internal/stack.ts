@@ -1,10 +1,11 @@
-import { ReadStackArray, SchemaValue, WriteStackValue } from "../types"
+import { ReadStackValue, SchemaValue, WriteStackValue } from "../types"
 
 export class WriteStack {
     array: WriteStackValue[]
+    prevDepth: number = 0
 
     constructor(object: Object) {
-        this.array = [[object, 0]]
+        this.array = [[object, 0, undefined, undefined, 0]]
     }
 
     /**
@@ -16,48 +17,102 @@ export class WriteStack {
      */
     add(
         object: Object,
-        overrideIndex: number = null,
-        isJustValues: boolean = null,
-        key: string = null
+        overrideIndex?: number,
+        isJustValues?: boolean,
+        key?: string,
+        nestingDepth?: number
     ) {
-        this.array.push([object, overrideIndex, isJustValues, key])
+        this.array.push([
+            object,
+            overrideIndex,
+            isJustValues,
+            key,
+            nestingDepth
+        ])
     }
 
     pop() {
         return this.array.pop()
     }
+
+    neighbor() {
+        return this.array[this.array.length - 1]
+    }
 }
 
 export class ReadStack {
-    private stack: ReadStackArray = []
+    private originalObject: Object
+    /**
+     * Stack of nested objects within each other
+     */
+    private stack: ReadStackValue[] = []
+    /**
+     * An array that stores nesting of arrays or a map when reading
+     */
+    private notObjectsIndexes: number[] = []
 
     constructor(schema: SchemaValue) {
-        if (schema.isArray) this.enterArray(0)
+        this.originalObject = schema.isArray ? [] : {}
+        this.stack.push({ parent: null, key: null })
+        this.stack.push({ parent: this.originalObject, key: null })
     }
 
-    get current() {
+    /**
+     * Returns current element in stack
+     */
+    private get currentFrame() {
         return this.stack[this.stack.length - 1]
     }
 
-    enterObject(index: number, key: string = null) {
-        this.stack.push({
-            root: {},
-            key,
-            index,
-            isArray: false
-        })
+    /**
+     * Returns current ref to object in stack
+     */
+    get currentRef() {
+        const { parent, key } = this.currentFrame
+        return key == null ? parent : parent[key]
+    }
+
+    /**
+     * Creating an object and moving to it on the stack
+     */
+    enterObject(key?: string) {
+        const container = {}
+        if (key !== undefined) {
+            this.currentRef[key] = container
+            this.stack.push({ parent: this.currentRef, key })
+        } else if (Array.isArray(this.currentRef)) {
+            this.currentRef.push(container)
+            this.stack.push({
+                parent: this.currentRef,
+                key: this.currentRef.length - 1
+            })
+        }
     }
 
     /**
      * Creating an array and moving to it on the stack
      */
-    enterArray(index: number, key: string = null) {
-        this.stack.push({
-            root: [],
-            key,
-            index,
-            isArray: true
-        })
+    enterArray(index: number, key?: string) {
+        const container: any[] = []
+        this.notObjectsIndexes.push(index)
+        if (key !== undefined) {
+            this.currentRef[key] = container
+            this.stack.push({ parent: this.currentRef, key })
+        } else if (Array.isArray(this.currentRef)) {
+            this.currentRef.push(container)
+            this.stack.push({
+                parent: this.currentRef,
+                key: this.currentRef.length - 1
+            })
+        }
+    }
+
+    /**
+     * Creating an array-like object and moving to it on the stack
+     */
+    enterMap(index: number, key?: string) {
+        this.notObjectsIndexes.push(index)
+        this.enterObject(key)
     }
 
     /**
@@ -65,18 +120,29 @@ export class ReadStack {
      * @param levels default 1
      */
     exit(levels: number = 1) {
-        while (levels-- > 0 && this.stack.length >= 2) {
-            const obj = this.stack.pop()
-            if (this.isArray) {
-                ;(this.current.root as Array<unknown>).push(obj.root)
-            } else {
-                this.stack[this.stack.length - 1].root[obj.key] = obj.root
-            }
+        while (levels-- > 0 && this.stack.length > 2) {
+            this.stack.pop()
         }
     }
 
-    collapse() {
-        this.exit(this.stack.length - 1)
+    /**
+     * Exit from array, or array-like object
+     */
+    exitNotObject() {
+        this.notObjectsIndexes.pop()
+        this.exit()
+    }
+
+    /**
+     * Checking if the current index is the last in a list of array or array-like objects indices
+     * @param index index by schema
+     * @returns boolean
+     */
+    isEqualsIndexes(index: number) {
+        return (
+            this.notObjectsIndexes.length !== 0 &&
+            this.notObjectsIndexes[this.notObjectsIndexes.length - 1] === index
+        )
     }
 
     /**
@@ -85,7 +151,7 @@ export class ReadStack {
      * @param value field value
      */
     setField(key: string, value: any) {
-        this.current.root[key] = value
+        this.currentRef[key] = value
     }
 
     /**
@@ -93,24 +159,29 @@ export class ReadStack {
      * @param value not Object value
      */
     pushValue(value: any) {
-        if (this.isArray) {
-            ;(this.current.root as Array<unknown>).push(value)
+        if (Array.isArray(this.currentRef)) {
+            this.currentRef.push(value)
         }
     }
 
-    isEqualsIndexes(index: number) {
-        return this.current && this.current.index === index
+    get result() {
+        return this.originalObject
     }
 
-    get result() {
-        return this.stack[0].root
+    get currentKey() {
+        const frame = this.stack[this.stack.length - 1]
+        return frame.key
+    }
+
+    get currentParent() {
+        return this.stack[this.stack.length - 1].parent
     }
 
     get isArray() {
-        return this.current && this.current.isArray
+        return Array.isArray(this.currentRef)
     }
-}
 
-export class StreamStack {
-    index: number
+    get isMap() {
+        return this.currentRef instanceof Object
+    }
 }

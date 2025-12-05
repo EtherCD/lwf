@@ -1,32 +1,57 @@
 import { EncodeError } from "../errors"
-import { SchemaValue, WriteStackValue } from "../types"
+import { SchemaValue, TypeByte, WriteStackValue } from "../types"
 import { ReadContext, WriteContext } from "./context"
-import { Empty, Uint, Value } from "./vars"
+import { Empty, EndOfBlock, Uint, Value } from "./vars"
 import util from "util"
 
 export const Block = {
     encode(this: WriteContext, element: WriteStackValue) {
-        const index = element[1] !== null ? element[1] : 0
+        const index = element[1] !== undefined ? element[1] : 0
         const schema = this.schema.getSchema(index)
 
-        const object = element[0]
+        const object = element[0] as any
         const isJustValues = element[2] ?? false
         const containLength = schema.isArray || schema.isMap
         const key = element[3]
+        const nestingDepth = element[4]
+
+        const writeEndOfBlock = () => {
+            const diff = this.stack.prevDepth - nestingDepth
+
+            let enc = 0
+            if (diff >= 1) {
+                enc += diff
+                if (
+                    (schema.isMap || schema.isArray) &&
+                    !this.lastSchema.isArray &&
+                    !this.lastSchema.isMap
+                )
+                    enc += 1
+            }
+            if (diff == 0) enc += 1
+
+            if (enc !== 0) {
+                EndOfBlock.encode.call(this, enc)
+            }
+
+            if (nestingDepth !== undefined) this.stack.prevDepth = nestingDepth
+        }
+
+        writeEndOfBlock()
 
         if (Array.isArray(object)) {
             let values: Array<unknown> = object as Array<unknown>
 
-            if (!schema.isArray)
+            if (!schema.isArray) {
+                console.log(schema, object, index)
                 throw new EncodeError(
                     "Unexpected handling of an object or value instead of an array, key " +
-                        schema.key,
-                    schema.key
+                        schema.key
                 )
+            }
 
             if (values.length === 0) return
 
-            // If the current list consists only of simple values, we write
             if (isJustValues) {
                 Uint.encode.call(this, index)
                 Uint.encode.call(this, values.length)
@@ -37,18 +62,21 @@ export const Block = {
 
             let buf: Array<unknown> | undefined
 
-            // We go through the elements of the array
-            // If we find a simple value, we automatically add it to the buffer,
-            // and next time we add it to the stack.
             for (let i = values.length - 1; i >= 0; i--) {
-                const val = object[i]
+                const val = values[i]
                 if (!isJustValues)
                     if (typeof val === "object" && val !== null) {
                         if (buf) {
                             this.stack.add(buf, index, true)
                             buf = undefined
                         }
-                        this.stack.add(val, index)
+                        this.stack.add(
+                            val,
+                            index,
+                            undefined,
+                            undefined,
+                            nestingDepth + 2
+                        )
                     } else {
                         if (!buf) buf = [val]
                         else buf.push(val)
@@ -82,7 +110,13 @@ export const Block = {
                         this.stack.add(buf, index, true)
                         buf = undefined
                     }
-                    this.stack.add(value, index, null, key)
+                    this.stack.add(
+                        value,
+                        index,
+                        undefined,
+                        key,
+                        nestingDepth + 2
+                    )
                 } else {
                     if (!buf) buf = {}
                     buf[key] = value
@@ -93,14 +127,13 @@ export const Block = {
                 this.stack.add(buf, index, true)
                 buf = undefined
             }
-
             return
         }
 
         Uint.encode.call(this, index)
 
         const fields = schema.fields
-        const objects = schema.nestedK
+        const nested = schema.nestedK
 
         const objectKeys = new Set(Object.keys(object))
 
@@ -119,10 +152,9 @@ export const Block = {
                 if (objectKeys.has(field as string)) {
                     const value = object[field]
 
-                    if (typeof value === "object" && value !== null) {
+                    if (typeof value === "object" && value !== undefined) {
                         throw new EncodeError(
-                            "Unexpected use of object in list `fields` schema",
-                            field
+                            "Unexpected use of object in list `fields` schema"
                         )
                     } else Value.encode.call(this, value)
 
@@ -143,32 +175,45 @@ export const Block = {
                 a += count
             }
 
-        if (!objects) return
+        if (nested) {
+            a = nested.length - 1
 
-        a = objects.length - 1
+            while (a >= 0) {
+                let field = nested[a]
 
-        while (a >= 0) {
-            let field = objects[a]
+                if (objectKeys.has(field)) {
+                    const value = object[field]
 
-            if (objectKeys.has(field)) {
-                const value = object[field]
+                    if (typeof value === "object" && value !== undefined) {
+                        this.stack.add(
+                            value,
+                            schema.nestedI[a],
+                            undefined,
+                            undefined,
+                            nestingDepth + 1
+                        )
+                    } else
+                        throw new EncodeError(
+                            "Unexpected use of non-Object value in `nested` schema"
+                        )
+                }
 
-                if (typeof value === "object" && value !== null) {
-                    this.stack.add(value, schema.nestedI[a])
-                } else
-                    throw new EncodeError(
-                        "Unexpected use of non-Object value in `nested` schema",
-                        field
-                    )
+                a--
             }
-
-            a--
         }
+
+        this.lastSchema = schema
+        this.lastIndex = index
     },
     decode(this: ReadContext) {
+        while (EndOfBlock.check.call(this)) {
+            const count = EndOfBlock.decode.call(this)
+            this.stack.exit(count)
+        }
+
         const index = Uint.decode.call(this) as number
 
-        let schema
+        let schema: SchemaValue
         try {
             schema = this.schema.getSchema(index)
         } catch (e) {
@@ -177,8 +222,6 @@ export const Block = {
                 .slice(this.offset - 20, this.offset + 19)
                 .map((e) => void (str += e.toString(16) + " "))
             console.log(str)
-            //@ts-ignore
-            console.log(util.inspect(this.stack.result, false, null, true))
             throw e
         }
 
@@ -186,37 +229,28 @@ export const Block = {
         const isMap = schema.isMap
         const justValues = this.peek() === 0 ? false : true
 
-        if (!schema) return
+        // if (index === this.lastIndex) this.stack.exit()
+        // if (this.lastSchema)
+        //     if (
+        //         index !== this.lastIndex &&
+        //         this.lastSchema.nestedI &&
+        //         this.lastSchema.nestedI.includes(index)
+        //     ) {
+        //     } else if (
+        //         (schema.isArray || schema.isMap) &&
+        //         !this.stack.isEqualsIndexes(index) &&
+        //         !justValues
+        //     )
+        //         this.stack.exit()
 
-        // Exits from other not objects (arrays and maps)
-        if (this.lastSchema)
-            if (
-                index !== this.lastIndex &&
-                this.lastSchema.nestedI &&
-                this.lastSchema.nestedI.includes(index)
-            ) {
-            } else {
-                if (
-                    (schema.isArray || schema.isMap) &&
-                    !this.stack.isEqualsIndexes(index) &&
-                    !justValues
-                )
-                    this.stack.exit()
-
-                this.stack.exit(
-                    Math.abs(
-                        schema.nestingDepth - this.lastSchema.nestingDepth
-                    ) + 1
-                )
-            }
+        if (isArray && !schema) return
 
         if (isArray) {
             // If this is a new array, let's create it
-            if (!this.stack.isArray || this.stack.current.key !== schema.key) {
-                if (index !== 0) {
-                    this.stack.enterArray(index, schema.key)
-                }
+            if (!this.stack.isArray || this.stack.currentKey !== schema.key) {
+                if (index !== 0) this.stack.enterArray(index, schema.key)
             }
+
             //  If it contains only values, we read their length and write them to the array
             if (justValues) {
                 const length = Uint.decode.call(this)
@@ -224,35 +258,31 @@ export const Block = {
                 for (let i = 0; i < length; i++)
                     this.stack.pushValue(Value.decode.call(this))
 
-                const nextIndex = Uint.peek.call(this)
-                const nextSchema = this.schema.getSchema(nextIndex)
-                this.stack.exit(schema.nestingDepth - nextSchema.nestingDepth)
-
-                this.lastIndex = index
                 return
             } else {
                 this.read() // Reads byte with 0
-                this.stack.enterObject(index)
+                this.stack.enterObject()
             }
         } else if (isMap) {
-            if (!this.stack.isEqualsIndexes(index))
-                this.stack.enterObject(index, schema.key)
+            if (!this.stack.isMap || this.stack.currentKey !== schema.key) {
+                this.stack.enterMap(index, schema.key)
+            }
             if (this.peek() !== 0) {
                 const length = Uint.decode.call(this)
 
                 for (let i = 0; i < length; i++)
                     this.stack.setField(
-                        Value.decode.call(this),
+                        Value.decode.call(this) + "",
                         Value.decode.call(this)
                     )
                 return
             } else {
                 this.read()
                 const key = Value.decode.call(this)
-                this.stack.enterObject(index, key)
+                this.stack.enterObject(key + "")
             }
         } else {
-            this.stack.enterObject(index, schema.key)
+            this.stack.enterObject(schema.key)
         }
 
         let a = 0
@@ -277,17 +307,3 @@ export const Block = {
         this.lastSchema = schema
     }
 }
-
-/**
-
-
-{ a: { b: true } }
-
-nested = [ [ { a: { b: true } } ] ]
-index =0
-
-while (index < nested.length) {}
-
-nested.push([{b:true}, 01])
-
- */

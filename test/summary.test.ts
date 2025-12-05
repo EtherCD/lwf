@@ -1,5 +1,5 @@
-import { inspect } from "util"
 import lwf from "../src"
+import { inspectLwf } from "../src/util/inspect"
 import assert from "assert"
 
 const object = [
@@ -54,25 +54,25 @@ const object = [
         }
     },
     {
-        jp: {
-            id: 1,
-            x: 1130,
-            y: 1160,
-            radius: 15,
-            energy: 300,
-            maxEnergy: 300,
-            color: "rgb(255, 0, 0)"
-        }
+        // jp: {
+        //     id: 1,
+        //     x: 1130,
+        //     y: 1160,
+        //     radius: 15,
+        //     energy: 300,
+        //     maxEnergy: 300,
+        //     color: "rgb(255, 0, 0)"
+        // }
     },
     {
-        ue: {
-            "1": { x: 2542757, y: 348817, color: "red", aura: 150 },
-            "2": { x: 2538971, y: 347928, color: "red", aura: 150 },
-            "3": { x: 2531768, y: 349854, color: "red", aura: 150 },
-            "4": { x: 2544529, y: 347232, color: "red", aura: 150 }
-        }
-    },
-    { p: { "1": { x: 2528150, y: 345750, firstAbLvl: 5, secondAbLvl: 5 } } }
+        // ue: {
+        //     "1": { x: 2542757, y: 348817, color: "red", aura: 150 },
+        //     "2": { x: 2538971, y: 347928, color: "red", aura: 150 },
+        //     "3": { x: 2531768, y: 349854, color: "red", aura: 150 },
+        //     "4": { x: 2544529, y: 347232, color: "red", aura: 150 }
+        // }
+    }
+    // { p: { "1": { x: 2528150, y: 345750, firstAbLvl: 5, secondAbLvl: 5 } } }
 ]
 
 const schema = new lwf.Schema({
@@ -264,7 +264,7 @@ const schema = new lwf.Schema({
 
 test("Summary test", () => {
     const encoded = lwf.encode(object, schema)
+    console.log(inspectLwf(encoded))
     const a = lwf.decode(encoded, schema)
-    console.log(inspect(a, false, null, true))
     assert.deepStrictEqual(lwf.decode(encoded, schema), object)
 })

@@ -1,7 +1,7 @@
-import * as ieee754 from "../util/ieee754"
+import ieee754 from "ieee754"
 import * as varint from "../util/varint"
 import { TypeByte } from "../types"
-import { Context, ReadContext } from "./context"
+import { Context } from "./context"
 import { DecodeError, EncodeError } from "../errors"
 
 const BIG_INT_ZERO = BigInt(0)
@@ -12,28 +12,17 @@ const BIG_INT_ENDIAN = BigInt(0x7f)
 const BIG_INT_FULL_ENDIAN = BigInt(0xff)
 const BIG_INT_LENGTH = 19
 const BIG_INT_MAX = 2 ** 128
-const UINT_LENGTH_MAX = 11
 
-/**
- * The threshold at which encoding using Fraction Encoding becomes ineffective (more than 8 bytes)
- */
 const FRACTION_ENCODING_LIMIT = 2 ** (7 * 7) // 562_949_953_421_312_2
 
-// For more efficient pow, by array is working more fast, than Math.pow()
-const POW10 = Array.from({ length: 15 }, (_, i) => 10 ** i)
-
-// Range in byte type in which additional values ​​can be encoded
+// For writing UVarInt32 in single type byte
 const UINT_64_ADDITIONAL_MIN = 0x10
 const UINT_64_ADDITIONAL_MAX = 0x87
+// For writing length of string in single type byte
 const STRING_LENGTH_ADDITIONAL_MIN = 0x88
 const STRING_LENGTH_ADDITIONAL_MAX = 0xff
 
 export const Value = {
-    /**
-     * Decode value from buffer
-     * @param this Context
-     * @returns simple value (not Object or Array)
-     */
     decode(this: Context) {
         const type = this.read()
 
@@ -56,11 +45,6 @@ export const Value = {
                 return FloatFE.decode.call(this)
             case TypeByte.NFloatFE:
                 return -FloatFE.decode.call(this)
-            case TypeByte.Empty:
-                return
-            case TypeByte.EmptyCount:
-                Uint.decode.call(this)
-                return
             default:
                 if (
                     NumberType.inRange(
@@ -85,16 +69,18 @@ export const Value = {
                 )
                     return Str.decode.call(this, type)
                 let a = ""
+                // this.buffer
+                //     .slice(this.offset - 10, this.offset + 9)
+                //     .forEach((v) => {
+                //         a += v.toString(16) + " "
+                //     })
+                // console.log(a)
+
                 throw new DecodeError(
-                    "Unsupported data type " + type.toString(16)
+                    "Unsupported data type " + (type ?? 0).toString(16)
                 )
         }
     },
-    /**
-     * Encodes value
-     * @param this context
-     * @param value simple value (not Object or Array)
-     */
     encode(this: Context, value: unknown) {
         switch (typeof value) {
             case "boolean":
@@ -106,13 +92,19 @@ export const Value = {
                     value > Number.MAX_SAFE_INTEGER ||
                     value < Number.MIN_SAFE_INTEGER
                 )
-                    throw new EncodeError(
-                        "Number outside of range " + value,
-                        value
-                    )
+                    throw new EncodeError("Number outside of range " + value)
 
                 if (!Number.isInteger(value)) {
-                    Value.wrapFloat.call(this, value)
+                    const range = FloatFE.getRange(value)
+                    if (range <= FRACTION_ENCODING_LIMIT) {
+                        this.write(
+                            value < 0 ? TypeByte.NFloatFE : TypeByte.FloatFE
+                        )
+                        FloatFE.encode.call(this, value < 0 ? -value : value)
+                    } else {
+                        this.write(TypeByte.Double)
+                        Double.encode.call(this, value)
+                    }
                     return
                 }
 
@@ -127,22 +119,16 @@ export const Value = {
                 }
 
                 if (value < Number.MIN_SAFE_INTEGER / 2)
-                    throw new EncodeError(
-                        "Number outside of range of int " + value,
-                        value
-                    )
-                this.ensure(1)
+                    throw new EncodeError("Number outside of range " + value)
                 this.write(TypeByte.Int)
                 Int.encode.call(this, value)
                 return
             case "bigint":
                 if (value > BIG_INT_MAX || value < -BIG_INT_MAX)
                     throw new EncodeError(
-                        "BigInt outside of range 128 bits, value " + value,
-                        value
+                        "BigInt outside of range 128 bits, value " + value
                     )
 
-                this.ensure(1)
                 this.write(value < 0 ? TypeByte.NUint128 : TypeByte.Uint128)
                 Uint128.encode.call(
                     this,
@@ -153,51 +139,22 @@ export const Value = {
                 Str.encode.call(this, value)
                 return
             case "object":
-                if (value === null) {
-                    this.ensure(1)
-                    this.write(TypeByte.Null)
-                } else
+                if (value === null) this.write(TypeByte.Null)
+                else
                     throw new EncodeError(
-                        "Unexpected object when serializing simple values ",
-                        null
+                        "Unexpected object when serializing simple values "
                     )
                 return
             default:
                 throw new EncodeError(
-                    "Unsupported data type " + typeof value + " value " + value,
-                    value
+                    "Unsupported data type " + typeof value + " value " + value
                 )
-        }
-    },
-    wrapFloat(this: Context, value: number) {
-        let denominator = 0
-        let scaled = value < 0 ? -value : value
-
-        this.ensure(1)
-
-        while (scaled % 1 !== 0) {
-            scaled *= 10
-            denominator++
-            if (denominator >= 15) {
-                this.write(TypeByte.Double)
-                Double.encode.call(this, value)
-                return
-            }
-        }
-
-        const numerator = Math.round(scaled)
-        if (numerator <= FRACTION_ENCODING_LIMIT) {
-            this.write(value < 0 ? TypeByte.NFloatFE : TypeByte.FloatFE)
-            FloatFE.encode.call(this, numerator, denominator)
-        } else {
-            this.write(TypeByte.Double)
-            Double.encode.call(this, value)
         }
     }
 }
 
 /**
- * varint int limited to Number
+ * LEB128 int limited to Number
  */
 const Int = {
     decode(this: Context) {
@@ -209,7 +166,7 @@ const Int = {
 }
 
 /**
- * varint int limited to Number
+ * LEB128 int limited to Number
  */
 export const Uint = {
     decode(this: Context) {
@@ -218,7 +175,7 @@ export const Uint = {
         return value
     },
     encode(this: Context, value: number) {
-        this.ensure(UINT_LENGTH_MAX)
+        this.ensure(11)
         this.offset += varint.encode(value, this.buffer, this.offset)
     },
     peek(this: Context) {
@@ -230,7 +187,7 @@ export const Uint = {
  * Combines type with number.
  */
 export const NumberType = {
-    decode(this: ReadContext, type: number, min: number, max: number) {
+    decode(this: Context, type: number, min: number, max: number) {
         const range = max - min
         if (type >= min && type < max) {
             return type - min
@@ -238,7 +195,7 @@ export const NumberType = {
             return Uint.decode.call(this) + range
         }
     },
-    encode(this: ReadContext, value: number, min: number, max: number) {
+    encode(this: Context, value: number, min: number, max: number) {
         const range = max - min
         this.ensure(1)
         if (value < range) {
@@ -257,6 +214,8 @@ export const NumberType = {
  * Encoding BigInt in VarInt format
  *
  * Limitations: unsigned 128bit
+ *
+ * Sign stores at start of VarInt.
  */
 const Uint128 = {
     decode(this: Context) {
@@ -286,22 +245,45 @@ const Uint128 = {
 }
 
 /**
- * More compact than double, uses if double encoding too long in bytes
- *
- * Effective coding is only possible if number <= 562_949_953_421_312_2
- *
- * Then it takes a smaller or identical form with double the size.
+ * Fraction Encoding for float
+ * Limitations: The total length of numbers must not exceed 17 digits.
  */
 const FloatFE = {
     decode(this: Context) {
         const numerator = Uint.decode.call(this)
         const denominator = this.buffer[this.offset++]
-        return numerator / POW10[denominator]
+        return numerator / 10 ** denominator
     },
-    encode(this: Context, numerator: number, denominator: number) {
+    encode(this: Context, value: number) {
+        let denominator = 0
+        let scaled = value
+
+        while (denominator < 15 && scaled % 1 !== 0) {
+            scaled *= 10
+            denominator++
+        }
+
+        const numerator = Math.round(scaled)
+
+        if (numerator > Number.MAX_SAFE_INTEGER) {
+            throw new EncodeError("FloatFE outside of range " + value)
+        }
+
         Uint.encode.call(this, numerator)
         this.ensure(1)
-        this.write(denominator & 0xff)
+        this.buffer[this.offset++] = denominator & 0xff
+    },
+    getRange(value: number): number {
+        let denominator = 0
+        let scaled = value < 0 ? -value : value
+
+        while (denominator < 15 && scaled % 1 !== 0) {
+            scaled *= 10
+            denominator++
+        }
+
+        const numerator = Math.round(scaled)
+        return numerator
     }
 }
 
@@ -337,27 +319,53 @@ const Double = {
     }
 }
 
-const textDecode = new TextDecoder("utf-8")
-const textEncode = new TextEncoder()
-
 /**
- * Encodes string. MORE FAST!
+ * Encodes string
  */
+// Realization of fast encoding and decoding for string taken from protobuf.js.
+// https://github.com/protobufjs/protobuf.js/blob/master/lib/utf8/index.js
 const Str = {
     decode(this: Context, type: number) {
-        let length = NumberType.decode.call(
-            this,
-            type,
-            STRING_LENGTH_ADDITIONAL_MIN,
-            STRING_LENGTH_ADDITIONAL_MAX
-        )
+        let length =
+            NumberType.decode.call(
+                this,
+                type,
+                STRING_LENGTH_ADDITIONAL_MIN,
+                STRING_LENGTH_ADDITIONAL_MAX
+            ) ?? 0
 
         if (length <= 0) return ""
 
-        const view = this.buffer.subarray(this.offset, this.offset + length)
-        this.offset += length
+        const end = this.offset + length
 
-        return textDecode.decode(view)
+        var str = ""
+        for (; this.offset < end; ) {
+            var t = this.read()
+            if (t <= 0x7f) {
+                str += String.fromCharCode(t)
+            } else if (t >= 0xc0 && t < 0xe0) {
+                str += String.fromCharCode(
+                    ((t & 0x1f) << 6) | (this.read() & 0x3f)
+                )
+            } else if (t >= 0xe0 && t < 0xf0) {
+                str += String.fromCharCode(
+                    ((t & 0xf) << 12) |
+                        ((this.read() & 0x3f) << 6) |
+                        (this.read() & 0x3f)
+                )
+            } else if (t >= 0xf0) {
+                var t2 =
+                    (((t & 7) << 18) |
+                        ((this.read() & 0x3f) << 12) |
+                        ((this.read() & 0x3f) << 6) |
+                        (this.read() & 0x3f)) -
+                    0x10000
+                str += String.fromCharCode(0xd800 + (t2 >> 10))
+                str += String.fromCharCode(0xdc00 + (t2 & 0x3ff))
+            }
+        }
+
+        return str
     },
     encode(this: Context, value: string) {
         if (value.length === 0) {
@@ -370,16 +378,58 @@ const Str = {
             return
         }
 
-        const encoded = textEncode.encode(value)
+        const len = Str._len(value)
+
         NumberType.encode.call(
             this,
-            encoded.length,
+            len,
             STRING_LENGTH_ADDITIONAL_MIN,
             STRING_LENGTH_ADDITIONAL_MAX
         )
-        this.ensure(encoded.length)
-        this.buffer.set(encoded, this.offset)
-        this.offset += encoded.length
+        this.ensure(len)
+
+        var c1, // character 1
+            c2 // character 2
+        for (var i = 0; i < value.length; ++i) {
+            c1 = value.charCodeAt(i)
+            if (c1 < 128) {
+                this.write(c1)
+            } else if (c1 < 2048) {
+                this.write((c1 >> 6) | 192)
+                this.write((c1 & 63) | 128)
+            } else if (
+                (c1 & 0xfc00) === 0xd800 &&
+                ((c2 = value.charCodeAt(i + 1)) & 0xfc00) === 0xdc00
+            ) {
+                c1 = 0x10000 + ((c1 & 0x03ff) << 10) + (c2 & 0x03ff)
+                ++i
+                this.write((c1 >> 18) | 240)
+                this.write(((c1 >> 12) & 63) | 128)
+                this.write(((c1 >> 6) & 63) | 128)
+                this.write((c1 & 63) | 128)
+            } else {
+                this.write((c1 >> 12) | 224)
+                this.write(((c1 >> 6) & 63) | 128)
+                this.write((c1 & 63) | 128)
+            }
+        }
+    },
+    _len(string: string) {
+        var len = 0,
+            c = 0
+        for (var i = 0; i < string.length; ++i) {
+            c = string.charCodeAt(i)
+            if (c < 128) len += 1
+            else if (c < 2048) len += 2
+            else if (
+                (c & 0xfc00) === 0xd800 &&
+                (string.charCodeAt(i + 1) & 0xfc00) === 0xdc00
+            ) {
+                ++i
+                len += 4
+            } else len += 3
+        }
+        return len
     }
 }
 
@@ -408,6 +458,36 @@ export const Empty = {
     check(this: Context) {
         const header = this.buffer[this.offset]
         return header === TypeByte.Empty || header === TypeByte.EmptyCount
+    }
+}
+
+export const EndOfBlock = {
+    decode(this: Context) {
+        const header = this.read()
+        switch (header) {
+            case TypeByte.EndOfBlock:
+                return 1
+            case TypeByte.EndOfBlockCount:
+                return Uint.decode.call(this)
+            default:
+                throw new DecodeError(
+                    "An unexpected type when reading emptiness, type " + header
+                )
+        }
+    },
+    encode(this: Context, count?: number) {
+        if (count === 1 || count === undefined) this.write(TypeByte.EndOfBlock)
+        else if (count !== 0) {
+            this.write(TypeByte.EndOfBlockCount)
+            Uint.encode.call(this, count)
+        }
+    },
+    check(this: Context) {
+        const header = this.peek()
+        return (
+            header === TypeByte.EndOfBlock ||
+            header === TypeByte.EndOfBlockCount
+        )
     }
 }
 
