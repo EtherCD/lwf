@@ -41,7 +41,7 @@ export class WriteStack {
 }
 
 export class ReadStack {
-    private originalObject: Object
+    private originalObject: object
     /**
      * Stack of nested objects within each other
      */

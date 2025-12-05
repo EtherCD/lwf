@@ -102,6 +102,15 @@ Data types responsible for skipping them.
 
 Used to indicate gaps in a chunk, since a chunk encodes the values ​​of only those fields that are specified in the scheme, missing values ​​must be replaced with gaps. Otherwise, reading that relies on the length of fields in the scheme will stop reading correctly.
 
+### EOB
+
+| TypeByte | Type      | Description             | Pseudo-syntax                  |
+| -------- | --------- | ----------------------- | ------------------------------ |
+| 0a       | eob       | Single empty field      | \| tb \|                       |
+| 0b       | eob count | Empty for number values | \| tb \| count in uvarint32 \| |
+
+Used to indicate gaps in a chunk, since a chunk encodes the values ​​of only those fields that are specified in the scheme, missing values ​​must be replaced with gaps. Otherwise, reading that relies on the length of fields in the scheme will stop reading correctly.
+
 ## Schema
 
 First of all, the format itself relies on a schema, which always specifies: whether the block is an element of an array, whether the block is an element of an Array-like Map, the key by which the object will be added to the related object, the names of the fields by which the values ​​will be written to the object

@@ -2,21 +2,27 @@ import { defineConfig } from "tsup"
 
 export default defineConfig([
     {
-        entry: ["src/index.ts"],
+        entry: {
+            index: "src/index.ts"
+        },
         format: ["esm", "cjs"],
         dts: true,
         sourcemap: true,
-        clean: true,
-        minify: true
+        minify: true,
+        splitting: false,
+        clean: true
     },
     {
-        entry: ["src/index.ts"],
+        entry: {
+            index: "src/index.ts"
+        },
         format: ["iife"],
         minify: true,
         sourcemap: true,
         globalName: "lwf",
         dts: false,
         clean: true,
-        target: "es2018"
+        target: "es2018",
+        splitting: false
     }
 ])

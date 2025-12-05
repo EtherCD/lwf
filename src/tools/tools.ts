@@ -2,7 +2,12 @@ import { ReadContext } from "../internal/context"
 import { Schema } from "../internal/schema"
 import { Empty, EndOfBlock, Value } from "../internal/vars"
 
-export const inspectLwf = (array: Uint8Array) => {
+/**
+ * A tool that allows you to look inside a file and output the result to the console.
+ * @param array Uint8Array
+ * @returns Colored string
+ */
+const inspect = (array: Uint8Array) => {
     const context = new ReadContext(
         array,
         new Schema({
@@ -40,8 +45,15 @@ export const inspectLwf = (array: Uint8Array) => {
             continue
         }
 
+        if (context.peek() === 0xaa) {
+            output += "\x1b[90m EOB\x1b[0m "
+            continue
+        }
+
         context.read()
     }
 
     return output
 }
+
+export const lwfTools = { inspect }

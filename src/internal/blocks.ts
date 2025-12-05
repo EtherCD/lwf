@@ -30,6 +30,14 @@ export const Block = {
             }
             if (diff == 0) enc += 1
 
+            if (
+                this.lastSchema?.isMap &&
+                this.lastSchema.nestedI &&
+                !this.lastSchema.nestedI.includes(index)
+            ) {
+                EndOfBlock.encode.call(this, 1)
+            }
+
             if (enc !== 0) {
                 EndOfBlock.encode.call(this, enc)
             }
@@ -229,29 +237,13 @@ export const Block = {
         const isMap = schema.isMap
         const justValues = this.peek() === 0 ? false : true
 
-        // if (index === this.lastIndex) this.stack.exit()
-        // if (this.lastSchema)
-        //     if (
-        //         index !== this.lastIndex &&
-        //         this.lastSchema.nestedI &&
-        //         this.lastSchema.nestedI.includes(index)
-        //     ) {
-        //     } else if (
-        //         (schema.isArray || schema.isMap) &&
-        //         !this.stack.isEqualsIndexes(index) &&
-        //         !justValues
-        //     )
-        //         this.stack.exit()
-
         if (isArray && !schema) return
 
         if (isArray) {
-            // If this is a new array, let's create it
             if (!this.stack.isArray || this.stack.currentKey !== schema.key) {
                 if (index !== 0) this.stack.enterArray(index, schema.key)
             }
 
-            //  If it contains only values, we read their length and write them to the array
             if (justValues) {
                 const length = Uint.decode.call(this)
 
@@ -260,7 +252,7 @@ export const Block = {
 
                 return
             } else {
-                this.read() // Reads byte with 0
+                this.read()
                 this.stack.enterObject()
             }
         } else if (isMap) {

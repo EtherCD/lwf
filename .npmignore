@@ -10,3 +10,4 @@ test/
 docs/
 benchmark.mts
 dest.ts
+playground/

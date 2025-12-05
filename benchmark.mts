@@ -1,9 +1,9 @@
 import { Value } from "./src/internal/vars"
-import { createWriteCtx } from "./test/utils"
 import { Bench } from "tinybench"
-import lwf from "./src"
+import lwf, { Schema } from "./src"
+import { WriteContext } from "./src/internal/context"
 
-const ctx = createWriteCtx({}, {})
+const ctx = new WriteContext(new Schema({}), {})
 const table: Record<string, { name: string; value: any; ops: number }> = {}
 
 const intVal = -Math.floor(Number.MAX_SAFE_INTEGER / 2) + 1

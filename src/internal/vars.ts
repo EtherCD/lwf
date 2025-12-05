@@ -1,8 +1,8 @@
-import ieee754 from "ieee754"
-import * as varint from "../util/varint"
+import * as varint from "./util/varint"
 import { TypeByte } from "../types"
 import { Context } from "./context"
 import { DecodeError, EncodeError } from "../errors"
+import { read, write } from "./util/ieee754"
 
 const BIG_INT_ZERO = BigInt(0)
 const BIG_INT_ONE = BigInt(1)
@@ -292,13 +292,13 @@ const FloatFE = {
  */
 export const Float = {
     decode(this: Context) {
-        const result = ieee754.read(this.buffer, this.offset, false, 23, 4)
+        const result = read(this.buffer, this.offset, false, 23, 4)
         this.offset += 4
         return result
     },
     encode(this: Context, value: number) {
         this.ensure(4)
-        ieee754.write(this.buffer, value, this.offset, false, 23, 4)
+        write(this.buffer, value, this.offset, false, 23, 4)
         this.offset += 4
     }
 }
@@ -308,13 +308,13 @@ export const Float = {
  */
 const Double = {
     decode(this: Context) {
-        const result = ieee754.read(this.buffer, this.offset, false, 54, 8)
+        const result = read(this.buffer, this.offset, false, 54, 8)
         this.offset += 8
         return result
     },
     encode(this: Context, value: number) {
         this.ensure(8)
-        ieee754.write(this.buffer, value, this.offset, false, 54, 8)
+        write(this.buffer, value, this.offset, false, 54, 8)
         this.offset += 8
     }
 }

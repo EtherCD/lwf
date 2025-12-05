@@ -1,6 +1,7 @@
-const lwf = require("./dist").default
-const util = require("util")
-const object = {
+import fs from "fs"
+import { lwfFile, lwfTools, Schema } from "./src"
+
+const world = {
     data: {
         name: "Catastrophic Collapse",
         colors: {
@@ -51,7 +52,7 @@ const object = {
     ]
 }
 
-const schema = new lwf.Schema({
+const schema = {
     g: {
         nested: ["d", "a"]
     },
@@ -93,8 +94,23 @@ const schema = new lwf.Schema({
         key: "types",
         isArray: true
     }
+}
+
+const encoded = lwfFile.encode(world, schema, {
+    version: "0.0.1"
 })
 
-const enc = lwf.encode(object, schema)
+const a = new Schema({
+    a: {
+        isMap: true
+    }
+})
 
-console.log(util.inspect(lwf.decode(enc, schema), false, null, true))
+try {
+    // fs.mkdirSync("./playground")
+} catch {}
+// fs.writeFileSync("./playground/world.lwf", encoded)
+const file = fs.readFileSync("./playground/world.lwf")
+console.log(lwfTools.inspect(file))
+const output = lwfFile.decode(fs.readFileSync("./playground/world.lwf"))
+console.log(output)

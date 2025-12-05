@@ -3,7 +3,7 @@ import * as Errors from "./errors"
 import { Block } from "./internal/blocks"
 import { ReadContext, WriteContext } from "./internal/context"
 
-const lwf = {
+export const lwf = {
     /**
      * Encodes object to lwf format
      * @param obj Array or Object
@@ -33,5 +33,8 @@ const lwf = {
 }
 
 export { RawSchema, RawSchemaValue } from "./types"
+export { Schema } from "./internal/schema"
+export * from "./errors"
+export * from "./tools"
 
 export default lwf
